@@ -1,4 +1,4 @@
-FE_DATA/
-etc/
-BACKUPS/
-GPR/GSkernel/
+/FE_DATA/
+/etc/
+/BACKUPS/
+/.vscode/
