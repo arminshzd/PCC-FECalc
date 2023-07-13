@@ -1,0 +1,8 @@
+{
+    "scripts_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FECalc/scripts",
+    "FEN_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FE_DATA/Fentanyl/export/",
+    "DEC_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FE_DATA/BenzylFentanyl/export/",
+    "pymol_dir": "/project/andrewferguson/armin/pymol/pymol/pymol",
+    "packmol_dir": "/project/andrewferguson/armin/packmol/packmol-20.14.2/packmol",
+    "acpype_dir": "/project/andrewferguson/armin/envs/acpype"
+}

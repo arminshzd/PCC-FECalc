@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: GS-cpp
+Version: 0.0.1
+Summary: C++ implementation of gram matrix computation in GS kernel
+Author: yutaoma
+Author-email: yma3@uchicago.edu

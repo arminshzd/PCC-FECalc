@@ -1,0 +1,26 @@
+; topol.top created by acpype (v: 2022.6.6) on Thu Jun 29 11:22:40 2023
+
+; Include AMBER
+#include "amber99sb.ff/forcefield.itp"
+
+; Include PCC_GMX.itp topology
+#include "PCC_GMX.itp"
+
+; Include ions.itp
+#include "amber99sb.ff/ions.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "posre_PCC.itp"
+#endif
+
+; Include water topology
+#include "amber99sb.ff/tip3p.itp"
+
+[ system ]
+PCC in water
+
+[ molecules ]
+; Compound        nmols
+  PCC             1
+ 
