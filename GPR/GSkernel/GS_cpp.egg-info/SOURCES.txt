@@ -1,7 +1,0 @@
-setup.py
-GS_cpp.egg-info/PKG-INFO
-GS_cpp.egg-info/SOURCES.txt
-GS_cpp.egg-info/dependency_links.txt
-GS_cpp.egg-info/top_level.txt
-src/bindings.cpp
-src/compute_kernel.cpp
