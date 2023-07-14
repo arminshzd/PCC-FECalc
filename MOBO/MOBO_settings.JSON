@@ -1,0 +1,14 @@
+{
+    "base_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/MOBO/TEST",
+    "calc_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/MOBO/TEST",
+    "FECalc_settings_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/MOBO/TEST",
+    "metadata_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/MOBO/TEST/metadata.JSON",
+    "max_iter": 10,
+    "n_sample_per_iter": 5,
+    "allowed_AAs": ["C", "D", "S", "Q", "K", "I", "P", "T", "F", "N", "G", "H", "L", "R", "W", "A", "V", "E", "Y", "M"],
+    "epi_len": 5,
+    "gpr_alpha": 0.1,
+    "gpr_L_list": [2, 3, 4, 5],
+    "gpr_sigma_bounds": [1e-10, 1e10],
+    "AA_dict_path": "/project/andrewferguson/armin/HTVS_Fentanyl/GPR/AA.blosum62.dat"
+}

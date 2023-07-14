@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 from pathlib import Path
 from sklearn.gaussian_process import GaussianProcessRegressor
-from GSKernel import GSkernel
+from .GSKernel import GSkernel
 
 class GSKGPR():
     """
@@ -14,10 +14,9 @@ class GSKGPR():
         self.X_train = X_train
         self.Y_train = Y_train
         # Amino Acid interaction matrix
-        self.AA_mat = AA_matrix if AA_matrix else Path("/project/andrewferguson/armin/HTVS_Fentanyl/GPR/AA.blosum62.dat")
+        self.AA_mat = AA_matrix
         # initiate best L parameter
         self.fit_l = None
-        pass
 
     def fit(self, alpha_train: float, L_grid: typing.Iterable, bounds: npt.ArrayLike) -> GaussianProcessRegressor | None:
         # initializations

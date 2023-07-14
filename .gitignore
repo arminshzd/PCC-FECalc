@@ -1,4 +1,6 @@
 /FE_DATA/
 /etc/
 /BACKUPS/
-/.vscode/
+.vscode/
+/MOBO/TEST/
+__pycache__/

@@ -4,7 +4,7 @@ import subprocess
 import json
 from pathlib import Path
 
-from GMXitp import GMXitp
+from .GMXitp import GMXitp
 
 class cd:
     """Context manager for changing the current working directory"""
@@ -429,7 +429,7 @@ class FECalc():
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
         return None
     
-    def _reweight(self, wait: bool = True) -> None: # NOT TESTED
+    def _reweight(self, wait: bool = True) -> None:
         """
         Reweight the results of the pbmetad run.
 
@@ -448,7 +448,11 @@ class FECalc():
             subprocess.run("cp ../pbmetad/HILLS_PCC .", shell=True, check=True)
             subprocess.run("cp ../pbmetad/COLVAR .", shell=True, check=True)
             subprocess.run(f"cp {self.script_dir}/sub_mdrun_rerun.sh .", shell=True) # copy mdrun submission script            
-            subprocess.run(f"cp {self.script_dir}/reweight.dat .", shell=True) # copy reweight script
+            subprocess.run(f"cp {self.script_dir}/reweight.dat ./reweight_temp.dat", shell=True) # copy reweight script
+            # update PCC and MOL atom ids
+            self._create_plumed("./reweight_temp.dat", "./reweight.dat")
+            # remove temp plumed file
+            subprocess.run(f"rm ./reweight_temp.dat", shell=True)
             # submit reweight job
             wait_str = " --wait " if wait else "" # whether to wait for reweight to finish before exiting
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_rerun.sh", check=True, shell=True)
@@ -473,9 +477,9 @@ class FECalc():
         # create and minimize the complex
         #self._mix()
         # run PBMetaD
-        self._pbmetaD()
+        #self._pbmetaD()
         # reweight
-        #self._reweight()
+        self._reweight()
         # calc FE
         #self._calc_FE()
         return self.free_e

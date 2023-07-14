@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 from pathlib import Path
-import GS_cpp
+from .GS_cpp import *
 from sklearn.gaussian_process.kernels import Kernel, Hyperparameter
 from sklearn.gaussian_process.kernels import GenericKernelMixin,NormalizedKernelMixin
 from sklearn.base import clone
@@ -103,13 +103,13 @@ class GSkernel(GenericKernelMixin,NormalizedKernelMixin,Kernel):
 			if eval_gradient:
 				raise ValueError("Gradient can only be evaluated when Y is None.")
 			else:
-				K,_,_ = GS_cpp.compute_gram_matrix(X,Y,self.E_matrix_,self.L,self.sigma_p,self.sigma_c,False) # type: ignore
-				diag_X = GS_cpp.compute_diagonal(X,self.E_matrix_,self.L,self.sigma_p,self.sigma_c) # type: ignore
-				diag_Y = GS_cpp.compute_diagonal(Y,self.E_matrix_,self.L,self.sigma_p,self.sigma_c) # type: ignore
+				K,_,_ = compute_gram_matrix(X,Y,self.E_matrix_,self.L,self.sigma_p,self.sigma_c,False) # type: ignore
+				diag_X = compute_diagonal(X,self.E_matrix_,self.L,self.sigma_p,self.sigma_c) # type: ignore
+				diag_Y = compute_diagonal(Y,self.E_matrix_,self.L,self.sigma_p,self.sigma_c) # type: ignore
 				return K/np.outer(np.sqrt(diag_X),np.sqrt(diag_Y))
 		else:
 			if eval_gradient:
-				K,dK_dsp,dK_dsc = GS_cpp.compute_gram_matrix(X,X,self.E_matrix_,self.L,self.sigma_p,self.sigma_c,True) # type: ignore
+				K,dK_dsp,dK_dsc = compute_gram_matrix(X,X,self.E_matrix_,self.L,self.sigma_p,self.sigma_c,True) # type: ignore
 				dK_dsp = self._normalize_gradient(K,dK_dsp)
 				dK_dsc = self._normalize_gradient(K,dK_dsc) 
 				diag_X = np.sqrt(np.diagonal(K))
@@ -117,7 +117,7 @@ class GSkernel(GenericKernelMixin,NormalizedKernelMixin,Kernel):
 				dK_dL = np.empty((K.shape[0],K.shape[1],0))
 				return K, np.dstack((dK_dL,self.sigma_c*dK_dsc[:,:,np.newaxis],self.sigma_p*dK_dsp[:,:,np.newaxis]))
 			else:
-				K,_,_ = GS_cpp.compute_gram_matrix(X,X,self.E_matrix_,self.L,self.sigma_p,self.sigma_c,True) # type: ignore
+				K,_,_ = compute_gram_matrix(X,X,self.E_matrix_,self.L,self.sigma_p,self.sigma_c,True) # type: ignore
 				diag_X = np.sqrt(np.diagonal(K))
 				K = K/(np.outer(diag_X,diag_X))
 				return K
