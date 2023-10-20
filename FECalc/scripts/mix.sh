@@ -19,12 +19,12 @@ output $output
 
 structure $pcc
     number 1
-    inside cube -20 -20 -20 40
+    inside cube 0 0 0 30
 end structure
 
 structure $fen
     number 1
-    inside cube -20 -20 -20 40
+    inside cube 0 0 0 30
 end structure
 EOF
 

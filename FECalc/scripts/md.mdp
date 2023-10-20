@@ -1,7 +1,7 @@
 title                   = Production MD 
 ; Run parameters
 integrator              = md        ; leap-frog integrator
-nsteps                  = 50000000  ; 2 * 50000000 = 100000 ps (100 ns)
+nsteps                  = 100000000  ; 2 * 100000000 = 200000 ps (200 ns)
 dt                      = 0.002     ; 2 fs
 ; Output control
 nstxout                 = 0         ; suppress bulky .trr file by specifying 
@@ -20,7 +20,7 @@ lincs_order             = 4         ; also related to accuracy
 ; Neighborsearching
 cutoff-scheme           = Verlet    ; Buffered neighbor searching
 ns_type                 = grid      ; search neighboring grid cells
-nstlist                 = 80        ; 160 fs, largely irrelevant with Verlet scheme
+nstlist                 = 200       ; 160 fs, largely irrelevant with Verlet scheme
 rcoulomb                = 1.0       ; short-range electrostatic cutoff (in nm)
 rvdw                    = 1.0       ; short-range van der Waals cutoff (in nm)
 ; Electrostatics

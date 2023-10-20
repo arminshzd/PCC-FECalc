@@ -3,16 +3,17 @@ import typing
 import warnings
 from pathlib import Path
 import numpy.typing as npt
-from itertools import permutations
 import pickle
 from datetime import datetime
 
 import numpy as np
 import scipy.stats as st
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import pandas as pd
 
 from ..GPR.GSKGPR import GSKGPR
-from ..FECalc import FECalc
+from ..FECalc.FECalc import FECalc
 
 class MultiObjBayOpt():
     def __init__(self, settings_dir: Path) -> None:
@@ -38,12 +39,15 @@ class MultiObjBayOpt():
         self.gpr_sigma_bounds = self.settings["gpr_sigma_bounds"] if self.settings.get("gpr_sigma_bounds", None) is not None else (1e-20, 1e10)
         # paths
         self.base_dir = Path(self.settings["base_dir"]) # base directory to store files
+        if not self.base_dir.exists():
+            self.base_dir.mkdir()
         self.calc_dir = Path(self.settings["calc_dir"]) # path to free energy calculations' folder
         self.pickle_path = self.base_dir/"BO_backups" # path to backup pickles
         if not self.pickle_path.exists():
             self.pickle_path.mkdir()
         self.report_dir = self.base_dir/"MOBO_report.json" # path to report.json
         self.FECalc_settings_dir = Path(self.settings["FECalc_settings_dir"])
+        self.full_space_cache_path = Path(self.settings["full_space_cache_path"]) if self.settings.get("full_space_cache_path", None) is not None else None
 
     @classmethod
     def load(cls, filename) -> typing.Self:
@@ -51,20 +55,28 @@ class MultiObjBayOpt():
         with open(filename, 'rb') as f:
             return pickle.load(f)
     
-    def save(self, filename) -> None:
-        "Save class to a saved pickle file"
+    def save(self, filename = None) -> None:
+        """Save class to a saved pickle file"""
+        if filename is None:
+            now = datetime.now()
+            dt_string = now.strftime("%d%m%Y_%H%M%S")
+            filename = self.pickle_path/f"{dt_string}.pckl"
+
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
         return None
     
     def _write_report(self) -> None: # TODO: add more info to the report...
-        with open(self.report_dir) as f:
-            old_r = json.load(f)
+        if self.report_dir.exists():
+            with open(self.report_dir) as f:
+                old_r = json.load(f)
+        else:
+            old_r = {}
         
         now = datetime.now()
         dt_string = now.strftime("%d%m%Y_%H%M%S")
         old_r[self.iter] = {"timestamp": f"{dt_string}",
-            "sampled": self.sampled_points[self.iter].tolist(),
+                            "next_sites": self.sampled_points[self.iter].tolist(),
                            }
         
         with open(self.report_dir, 'w') as f:
@@ -89,11 +101,8 @@ class MultiObjBayOpt():
             warnings.simplefilter("ignore")
             self.spc_gpr = self.spc_gpr.fit(self.gpr_alpha, self.gpr_L_list, self.gpr_sigma_bounds)
 
-        self.input_space = self._get_input_space(self.AA_list, self.AA_len) # complete input space
+        self.input_space = self._get_input_space(from_cache=True if self.full_space_cache_path else False) # complete input space
         self.unexplored_input_space = np.array([x for x in self.input_space if x not in self.X_train]) # complete - init data
-        if not self.report_dir.exists():
-            with open(self.report_dir, 'w') as f:
-                json.dump({}, f, indent=1)
         # update initiations status
         self.initiated = True
         return None
@@ -112,22 +121,36 @@ class MultiObjBayOpt():
             metadata = json.load(f)
         # read X and Y from metadata file
         X_train = np.array(list(metadata.keys()))
-        Y_train_sen = np.array([val['FE_b'] for _, val in metadata.items()])
-        Y_train_spc = np.array([val['FE_s'] for _, val in metadata.items()])
+        Y_train_sen = np.array([-val['FE_b'] for _, val in metadata.items()])
+        Y_train_spc = np.array([-val['FE_s'] for _, val in metadata.items()])
         return X_train, Y_train_sen, Y_train_spc
 
-    def _get_input_space(self, AA_list: typing.Iterable, AA_len: int) -> npt.ArrayLike:
+    def _get_input_space(self, from_cache: bool = False) -> npt.ArrayLike:
         """
-        Calculates all permutations of `AA_len` peptides from amino acids in `AA_list`.
+        Calculates all permutations of 5-AA long peptides from amino acids in `self.AA_list`. If `from_cache` is True, input space is loaded from cached file.
 
         Inputs:
-            AA_list (Iterable): list of allowed amino acids
-            AA_len (int): length of peptide section
+            from_cache (bool, optional): Whether to load input space from cache instead of calculating. One item per line.
 
         Returns:
             npt.ArrayLike: all permutations of the allowed amino acids
         """
-        return np.array(["".join(perm) for perm in permutations(AA_list, AA_len)])
+        if not from_cache:
+            Xs = []
+            for a0 in self.AA_list:
+                for a1 in self.AA_list:
+                    for a2 in self.AA_list:
+                        for a3 in self.AA_list:
+                            for a4 in self.AA_list:
+                                x = "".join([a0, a1, a2, a3, a4])
+                                if x not in Xs:
+                                    Xs.append(x)
+        else:
+            Xs = []
+            with open(self.full_space_cache_path) as f:
+                for line in f:
+                    Xs.append(line.split()[0])
+        return np.array(Xs)
     
     def _update_state(self) -> None:
         """
@@ -149,11 +172,7 @@ class MultiObjBayOpt():
             self.spc_gpr = self.spc_gpr.fit(self.gpr_alpha, self.gpr_L_list, self.gpr_sigma_bounds)
             
         # update unexplored region
-        explored = []
-        for samples in self.sampled_points.values():
-            explored.extend(samples)
-        explored = np.concatenate((self.X_train, explored))
-        self.unexplored_input_space = np.array([x for x in self.input_space if x not in explored])
+        self.unexplored_input_space = np.array([x for x in self.input_space if x not in self.X_train])
         return None
         
     def _EI_acquisition(self, current_max: float, means: npt.ArrayLike, stds: npt.ArrayLike, alpha: float) -> npt.ArrayLike:
@@ -171,11 +190,13 @@ class MultiObjBayOpt():
         # calculate all EI values
         zs = (means - current_max*np.ones_like(means) - alpha*np.ones_like(means))/stds
         EI_vals = zs * stds * st.norm.cdf(zs) + stds * st.norm.pdf(zs)
+        # set the EI of training data to zero
+        for i in range(len(self.input_space)):
+            if self.input_space[i] in self.X_train:
+                EI_vals[i] = 0
         # set all negative values to zero
         EI_vals[EI_vals<0] = 0
-        # find the argmax of EI_vals
-        arg_max = np.argmax(EI_vals)
-        return arg_max, EI_vals
+        return EI_vals
 
     def _get_weights(self, bounds: tuple, size: int) -> npt.ArrayLike:
         """
@@ -222,12 +243,12 @@ class MultiObjBayOpt():
             npt.ArrayLike: _description_
         """
         # calculate surrogate for all points in the unexplored input space
-        sen_mean, sen_std = self.sen_gpr.predict(self.unexplored_input_space, return_std=True)
-        spc_mean, spc_std = self.spc_gpr.predict(self.unexplored_input_space, return_std=True)
+        self.sen_mean, self.sen_std = self.sen_gpr.predict(self.input_space, return_std=True)
+        self.spc_mean, self.spc_std = self.spc_gpr.predict(self.input_space, return_std=True)
         # get acquisition function values for all the points
-        _, sen_aqs = self._EI_acquisition(self.Y_train_sen.max(), sen_mean, sen_std, alpha=0.3) # (n, )
-        _, spc_aqs = self._EI_acquisition(self.Y_train_spc.max(), spc_mean, spc_std, alpha=0.3) # (n, )
-        objs = np.column_stack((sen_aqs, spc_aqs)) # (n, 2)
+        self.sen_aqs = self._EI_acquisition(self.Y_train_sen.max(), self.sen_mean, self.sen_std, alpha=0.3) # (n, )
+        self.spc_aqs = self._EI_acquisition(self.Y_train_spc.max(), self.spc_mean, self.spc_std, alpha=0.3) # (n, )
+        objs = np.column_stack((self.sen_aqs, self.spc_aqs)) # (n, 2)
         objs = np.tile(objs, [self.sample_per_iter, 1, 1]) # (n_sample, n, 2)
         # scalarization
         lambdas = np.reshape(lambdas, (self.sample_per_iter, 1, -1)) # (n_sample, 1, 2)
@@ -272,6 +293,31 @@ class MultiObjBayOpt():
             self._update_metadata(sample, sen_FE, spc_FE)
         return None
 
+    def iterate(self, bounds: tuple) -> None:
+        # initiate if not initiated already
+        if not self.initiated:
+            self._initiate()
+        else:
+            self._update_state()
+
+        # sample scalarization weights
+        lambdas = self._get_weights(bounds=bounds, size=self.sample_per_iter) # (n_sample, 2)
+        # get samples by maximizing acquisition function
+        samples = self._get_samples(lambdas=lambdas) # indeces of samples (n_samples, )
+        # update sampled sites
+        self.sampled_points[self.iter] = self.input_space[list(set(samples))]
+        # update self.iter
+        self.iter += 1
+        # save current model
+        self.save()
+        # write report
+        self._write_report()
+        # visualize results
+        self.vis_iter(self.sen_mean, self.sen_std, self.sen_aqs, self.Y_train_sen, f"{self.iter}_sen")
+        self.vis_iter(self.spc_mean, self.spc_std, self.spc_aqs, self.Y_train_spc, f"{self.iter}_spc")
+        self.pareto([self.Y_train_sen, self.Y_train_spc], f"{self.iter}_pareto")
+        return None
+    
     def optimize(self, bounds: tuple) -> None:
         # initiate if not initiated already
         if not self.initiated:
@@ -283,16 +329,63 @@ class MultiObjBayOpt():
             # get samples by maximizing acquisition function
             samples = self._get_samples(lambdas=lambdas) # indeces of samples (n_samples, )
             # evaluate sen and spc for new samples
-            self._evaluate(self.unexplored_input_space[samples])
+            # self._evaluate(self.unexplored_input_space[samples])
             # update sampled sites
             self.sampled_points[self.iter] = self.input_space[list(set(samples))]
+            # update object state
+            # self._update_state()
             # save current model
-            now = datetime.now()
-            dt_string = now.strftime("%d%m%Y_%H%M%S")
+            self.save()
             # write report
             self._write_report()
-            # save model to pckl
-            # self.save(self.pickle_path/(f"{self.iter}_"+dt_string+".pckl")) ####### <------- RE-ENABLE FOR ACTUAL RUN
-            # update object state
-            self._update_state()
+            # visualize results
+            #self.vis_iter(self.sen_mean, self.sen_std, self.sen_aqs, self.Y_train_sen, f"{self.iter}_sen")
+            #self.vis_iter(self.spc_mean, self.spc_std, self.spc_aqs, self.Y_train_spc, f"{self.iter}_spc")
+            #self.pareto([self.Y_train_sen, self.Y_train_spc], f"{self.iter}_pareto")
         return None
+    
+    def _dump_preds(self, guess_y: typing.Iterable, guess_std: typing.Iterable, 
+                    EIs: typing.Iterable, train_y: typing.Iterable, fname: str, 
+                    act_y: typing.Iterable = None, samples: typing.Iterable = None):
+        data_pd = pd.DataFrame({"X": self.input_space, "guess_y": guess_y, "guess_std": guess_std, "EI": EIs})
+
+        data_pd["in_train"] = False
+        data_pd["train_y"] = np.NaN
+        train_ids = data_pd.loc[data_pd.X.isin(self.X_train)].index
+        for i, idx in enumerate(train_ids):
+            data_pd.loc[idx, "in_train"] = True
+            data_pd.loc[idx, "train_y"] = train_y[i]
+
+        if act_y is not None:
+            data_pd["act_y"] = np.NaN
+            data_pd["sampled"] = False
+            for i, sample in enumerate(samples):
+                data_pd.act_y.iloc[sample] = act_y[i]
+                data_pd.sampled.iloc[sample] = True
+        data_pd.to_csv(self.base_dir/(fname+".csv"), index=False)
+        return None
+
+    def vis_iter(self, guess_y: typing.Iterable, guess_std: typing.Iterable, 
+                 EIs: typing.Iterable, train_y: typing.Iterable, fname: str, 
+                 act_y: typing.Iterable = None, samples: typing.Iterable = None):
+        fig, ax = plt.subplots(2, 1, figsize=(6, 6), dpi=100, gridspec_kw={'height_ratios': [3, 1]})
+        ax[0].plot(self.input_space.squeeze(), guess_y, 'r')
+        ax[0].fill_between(self.input_space.squeeze(), guess_y - guess_std, guess_y + guess_std)
+        if act_y is not None:
+            ax[0].plot(self.input_space.squeeze(), act_y, 'k--')
+            ax[0].scatter(self.input_space[samples], act_y[samples], color='r')
+        ax[0].scatter(self.X_train.squeeze(), train_y, color='g')
+        ax[1].plot(self.input_space.squeeze(), EIs)
+        #plt.tight_layout()
+        plt.savefig(self.base_dir/f"{fname}.png")
+        plt.close()
+        return None
+    
+    def pareto(self, train_y: typing.Iterable, fname: str, act_y: typing.Iterable = None):
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
+        if act_y is not None:
+            ax.scatter(*act_y, alpha=0.5)
+        ax.scatter(*train_y)
+        #plt.tight_layout()
+        plt.savefig(self.base_dir/f"{fname}.png")
+        plt.close()

@@ -9,7 +9,12 @@ do
     esac
 done
 
-module load python/anaconda-2022.05 openmpi/4.1.1 gcc/10.2.0 cuda/11.2 fftw3/3.3.9 gsl/2.7 lapack/3.10.0
+module unload openmpi gcc cuda python
+#module load openmpi/4.1.1 gcc/7.4.0 cuda/11.2
+module load openmpi/4.1.1+gcc-10.1.0 cuda/11.2
+
+#source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-nompi/bin/GMXRC
+source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2-256/bin/GMXRC
 
 parent_dir="$(dirname "$trajfile")"
 frames_dir="$parent_dir"/frames.temp
@@ -30,5 +35,3 @@ EOF
 gmx trjconv -s $trajset -f $trajfile -o $output -pbc whole -conect -fr $ndx_dir <<EOF
 2
 EOF
-
-rm $frames_dir

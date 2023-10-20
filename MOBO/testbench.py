@@ -1,4 +1,7 @@
-from MultiObjBayOpt import MultiObjBayOpt
+import torch
 
+from MultiObjBayOpt_BoTorch import FreeEnergyEval, MultiObjBayOpt
 
-test = MultiObjBayOpt("/project/andrewferguson/armin/HTVS_Fentanyl/MOBO/MOBO_settings.JSON")
+bounds = [(0, 1), (0, 1)]
+eval_model = FreeEnergyEval(bounds=bounds)
+
