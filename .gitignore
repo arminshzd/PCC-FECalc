@@ -4,3 +4,11 @@
 .vscode/
 /MOBO/TEST/
 __pycache__/
+/BO_test.py
+/MFMOBO/GS_cpp.so
+/MFMOBO/gskernel_cpp.py
+/MFMOBO/kernel_implementation.py
+/MFMOBO/kernel_testbench.ipynb
+/MFMOBO/sinkernel.ipynb
+/MFMOBO/testbench.ipynb
+/MFMOBO/testbench.py
