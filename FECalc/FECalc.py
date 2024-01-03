@@ -677,10 +677,12 @@ class FECalc():
             line = f.readline()
             while line: # read up to LINE_LIM lines
                 if line[0] == "#": # Don't read comments
+                    line = f.readline()
                     continue
                 line_list = line.split()
                 for i, field in enumerate(fields):
                     data[field].append(float(line_list[i]))
+                line = f.readline()
         data = pd.DataFrame(data)
         data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
         init_time = 100 #ns
@@ -767,10 +769,9 @@ class FECalc():
     
     def _calc_FE(self) -> None:
         colvars = self._load_plumed() # read colvars
-        analysis_data = colvars[(colvars.dcom < 2.5)] # discard data from dcom>2.5
         # block analysis
-        block_anal_data = self._block_anal_2d(analysis_data.dcom, analysis_data.ang,
-                                        analysis_data.weights, nbins=50, block_size=5000*20)
+        block_anal_data = self._block_anal_2d(colvars.dcom, colvars.ang,
+                                        colvars.weights, nbins=50, block_size=5000*20)
         f_list = []
         f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
         for i in f_cols:
@@ -782,7 +783,7 @@ class FECalc():
             unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', i, 'ste']]
             unbound_data.rename(columns={i: 'F'}, inplace=True)
             unbound_data.dropna(inplace=True)
-            f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data)[0])
+            f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
         f_list = np.array(f_list)
         return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
