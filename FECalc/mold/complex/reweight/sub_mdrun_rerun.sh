@@ -1,12 +1,7 @@
 #!/bin/sh
-##SBATCH --job-name=PCC
 
 # output file (including stderr)
 #SBATCH --output=R_%x_%j.out
-
-# email on start, end, and abortion
-#SBATCH --mail-type=ALL
-#SBATCH --mail-user=arminsh@uchicago.edu
 
 # name of partition to queue on
 ##SBATCH --account=pi-andrewferguson
@@ -18,13 +13,13 @@
 #SBATCH --time=1-12:00:00
 
 # number of GPU(s) per node, if available
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:2
 
 # number of nodes for this job
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 
 # number of processes to run per node
-#SBATCH --ntasks-per-node=8
+#SBATCH --ntasks-per-node=4
 
 # number of threads per cpu
 #SBATCH --cpus-per-task=5
@@ -36,13 +31,12 @@ NCPU=$(($SLURM_NTASKS_PER_NODE))
 NTHR=$(($SLURM_CPUS_PER_TASK))
 NNOD=$(($SLURM_JOB_NUM_NODES))
 
-NP=$(($NCPU * $NNOD))
+NP=$(($NCPU * $NNOD * $NTHR))
 
 module unload openmpi gcc cuda python
-#module load openmpi/4.1.1 gcc/7.4.0 cuda/11.2
 module load openmpi/4.1.1+gcc-10.1.0 cuda/11.2
 
-#source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-nompi/bin/GMXRC
-source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2/bin/GMXRC
+source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2-256/bin/GMXRC
 
-mpiexec -np "$NP" gmx mdrun -gpu_id 0123 -ntomp "$NTHR" -s ../pbmetad/md.tpr -cpi ../pbmetad/md.cpt -deffnm md -plumed plumed_restart.dat -maxh 36
+gmx mdrun -pin on -ntomp "$NP" -plumed reweight.dat -s ../md/md.tpr -rerun ../md/md.xtc
+

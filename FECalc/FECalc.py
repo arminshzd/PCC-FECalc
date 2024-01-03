@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import simpson
 
-from .GMXitp import GMXitp
+from .GMXitp.GMXitp import GMXitp
 
 class cd:
     """Context manager for changing the current working directory"""
@@ -51,7 +51,8 @@ class FECalc():
         self.settings_dir = Path(settings_json) # path settings.JSON
         with open(self.settings_dir) as f:
             self.settings = json.load(f)
-        self.script_dir = Path(self.settings['scripts_dir'])
+        self.script_dir = Path(__file__).parent/Path("scripts")#Path(self.settings['scripts_dir'])
+        self.mold_dir = Path(__file__).parent/Path("mold")
         self.PCC_code = pcc
         base_dir = Path(base_dir)
         if base_dir.exists():
@@ -88,6 +89,8 @@ class FECalc():
         self.PCC_n_atoms = None # number of PCC atoms
         self.MOL_list = [] # list of MOL atom ids (str)
         self.PCC_list = [] # list of PCC atom ids (str)
+        self.MOL_list_atom = [] # list of MOL atom names (str)
+        self.PCC_list_atom = [] # list of PCC atom names (str)
         self.free_e = None # Free energy of binding kJ/mol
         self.free_e_err = None # Error in free energy of binding kJ/mol
         self.KbT = float(self.settings["T"]) * 8.314 # System temperature in J/mol
@@ -95,8 +98,6 @@ class FECalc():
         self.pymol = Path(self.settings['pymol_dir']) # path to pymol installation
         self.packmol = Path(self.settings['packmol_dir']) # path to packmol installation
         self.acpype = Path(self.settings['acpype_dir']) # Path to acpype conda env
-
-
     
     def _check_done(self, stage: str) -> bool:
         """
@@ -193,7 +194,7 @@ class FECalc():
         Returns:
             None
         """
-        subprocess.run(f"cp {self.script_dir}/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
+        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
         # create acpype pdb with 1 residue
         self._prep_pdb()
 
@@ -221,10 +222,10 @@ class FECalc():
             subprocess.run("cp ../PCC.acpype/PCC_GMX.gro .", shell=True, check=True)
             subprocess.run("cp ../PCC.acpype/PCC_GMX.itp .", shell=True, check=True)
             subprocess.run("cp ../PCC.acpype/posre_PCC.itp .", shell=True, check=True)
-            subprocess.run(f"cp {self.script_dir}/topol.top .", shell=True, check=True)
-            subprocess.run(f"cp {self.script_dir}/ions.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.script_dir}/em.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.script_dir}/sub_mdrun_PCC_em.sh .", shell=True) # copy mdrun submission script
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/topol.top .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/ions.mdp .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/em.mdp .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/sub_mdrun_PCC_em.sh .", shell=True) # copy mdrun submission script
             # set self.PCC_n_atoms
             self._get_n_atoms("./PCC_GMX.gro")
             # submit em job
@@ -258,21 +259,27 @@ class FECalc():
         # get atom list
         atom_list = em_cnt[2:-1]
         # define atom id lists
-        MOL_list = []
-        PCC_list = []
+        MOL_list_id = []
+        MOL_list_atom = []
+        PCC_list_id = []
+        PCC_list_atom = []
         # get atom ids
         for line in atom_list:
             line_list = line.split()
             if re.match("^\d+MOL$", line_list[0]):
-                MOL_list.append(int(line_list[2]))
+                MOL_list_id.append(int(line_list[2]))
+                MOL_list_atom.append(line_list[1])
             elif re.match("^\d+PCC$", line_list[0]):
-                PCC_list.append(int(line_list[2]))
+                PCC_list_id.append(int(line_list[2]))
+                PCC_list_atom.append(line_list[1])
         # save MOL_list and PCC_list
-        self.MOL_list = MOL_list
-        self.PCC_list = PCC_list
+        self.MOL_list = MOL_list_id
+        self.PCC_list = PCC_list_id
+        self.MOL_list_atom = MOL_list_atom
+        self.PCC_list_atom = PCC_list_atom
         return None
         
-    def _fix_posre(self) -> None: # NOTE: Not tested
+    def _fix_posre(self) -> None:
         """
         Fix atom ids in position restraint files. Read the new ids from the `em.gro` file
         AFTER minimization and writes posre_MOL.itp and posre_PCC.itp.
@@ -325,7 +332,7 @@ class FECalc():
                 subprocess.run(f"cp {self.PCC_dir}/PCC.acpype/posre_PCC.itp .", shell=True, check=True)
                 subprocess.run(f"cp {self.PCC_dir}/em/PCC_em.pdb ./PCC.pdb", shell=True, check=True)
                 # create complex.pdb with packmol
-                subprocess.run(f"cp {self.script_dir}/mix.inp .", shell=True, check=True)
+                subprocess.run(f"cp {self.mold_dir}/complex/mix/mix.inp .", shell=True, check=True)
                 subprocess.run(f"module unload gcc && module load gcc/10.2.0 && {self.packmol} < ./mix.inp", shell=True, check=True)
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
@@ -344,9 +351,9 @@ class FECalc():
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.pdb .", shell=True, check=True)
                 subprocess.run("cp ../topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.script_dir}/ions.mdp .", shell=True, check=True)
-                subprocess.run(f"cp {self.script_dir}/em.mdp .", shell=True, check=True)
-                subprocess.run(f"cp {self.script_dir}/sub_mdrun_complex_em.sh .", shell=True) # copy mdrun submission script
+                subprocess.run(f"cp {self.mold_dir}/complex/em/ions.mdp .", shell=True, check=True)
+                subprocess.run(f"cp {self.mold_dir}/complex/em/em.mdp .", shell=True, check=True)
+                subprocess.run(f"cp {self.mold_dir}/complex/em/sub_mdrun_complex_em.sh .", shell=True) # copy mdrun submission script
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.PCC_charge}", check=True, shell=True)
             self._set_done(self.complex_dir/'em')
@@ -365,12 +372,12 @@ class FECalc():
                 subprocess.run("cp ../em/posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
                 subprocess.run("cp ../em/topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.script_dir}/sub_mdrun_complex_nvt.sh .", shell=True) # copy mdrun submission script
+                subprocess.run(f"cp {self.mold_dir}/complex/nvt/sub_mdrun_complex_nvt.sh .", shell=True) # copy mdrun submission script
                 # copy nvt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.script_dir}/nvt.mdp .", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt.mdp .", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.script_dir}/nvt_noions.mdp ./nvt.mdp", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt_nions.mdp ./nvt.mdp", shell=True, check=True)
                 # submit nvt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_nvt.sh", check=True, shell=True)
@@ -387,12 +394,12 @@ class FECalc():
                 subprocess.run("cp ../em/posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
                 subprocess.run("cp ../nvt/topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.script_dir}/sub_mdrun_complex_npt.sh .", shell=True) # copy mdrun submission script
+                subprocess.run(f"cp {self.mold_dir}/complex/npt/sub_mdrun_complex_npt.sh .", shell=True) # copy mdrun submission script
                 # copy npt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.script_dir}/npt.mdp .", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt.mdp .", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.script_dir}/npt_noions.mdp ./npt.mdp", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_noions.mdp ./npt.mdp", shell=True, check=True)
                 # submit npt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_npt.sh npt", shell=True)
@@ -443,12 +450,28 @@ class FECalc():
         # define atom ranges for PCC and MOL
         MOL_atom_id = f"{min(self.MOL_list)}-{max(self.MOL_list)}"
         PCC_atom_id = f"{min(self.PCC_list)}-{max(self.PCC_list)}"
+        v1a_atom_ids = f"""{self.PCC_list[self.PCC_list_atom.index("N4")]},{self.PCC_list[self.PCC_list_atom.index("C10")]},{self.PCC_list[self.PCC_list_atom.index("C11")]}"""
+        v1b_atom_ids = f"""{self.PCC_list[self.PCC_list_atom.index("C1")]},{self.PCC_list[self.PCC_list_atom.index("C2")]},{self.PCC_list[self.PCC_list_atom.index("C3")]}"""
+        vrb_atom_ids = f"""{self.PCC_list[self.PCC_list_atom.index("N1")]},{self.PCC_list[self.PCC_list_atom.index("N2")]},{self.PCC_list[self.PCC_list_atom.index("N3")]}"""
+        v2a_atom_ids = f"""{self.MOL_list[self.MOL_list_atom.index("C")]},{self.MOL_list[self.MOL_list_atom.index("C1")]},{self.MOL_list[self.MOL_list_atom.index("C2")]}"""
+        v2b_atom_ids = f"""{self.MOL_list[self.MOL_list_atom.index("N1")]},{self.MOL_list[self.MOL_list_atom.index("C13")]},{self.MOL_list[self.MOL_list_atom.index("C21")]}"""
         # replace new ids
         for i, line in enumerate(cnt):
             if "$1" in line:
-                line = line.replace("$1", MOL_atom_id)
+                line = line.replace("$1", PCC_atom_id)
             if "$2" in line:
-                line = line.replace("$2", PCC_atom_id)
+                line = line.replace("$2", MOL_atom_id)
+            if "$3" in line:
+                line = line.replace("$3", v1a_atom_ids)
+            if "$4" in line:
+                line = line.replace("$4", v1b_atom_ids)
+            if "$5" in line:
+                line = line.replace("$5", v2a_atom_ids)
+            if "$6" in line:
+                line = line.replace("$6", v2b_atom_ids)
+            if "$7" in line:
+                line = line.replace("$7", vrb_atom_ids)
+            
             cnt[i] = line
         # write new plumed file
         with open(plumed_out, 'w') as f:
@@ -467,12 +490,11 @@ class FECalc():
             None
         """
         # create complex/pbmetad dir
-        Path.mkdir(self.complex_dir/"pbmetad", exist_ok=True)
-        with cd(self.complex_dir/"pbmetad"): # cd into complex/pbmetad
+        Path.mkdir(self.complex_dir/"md", exist_ok=True)
+        with cd(self.complex_dir/"md"): # cd into complex/pbmetad
             wait_str = " --wait " if wait else "" # whether to wait for pbmetad to finish before exiting
-            if Path.exists(self.complex_dir/"pbmetad"/"md.cpt"):
-                print("Resuming previous run...")
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed_restart.sh", check=True, shell=True)
+            if Path.exists(self.complex_dir/"md"/"md.cpt"):
+                print(" Resuming previous run...")
             else:
                 # copy files into complex/pbmetad
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
@@ -481,10 +503,10 @@ class FECalc():
                 subprocess.run("cp ../em/posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
                 subprocess.run("cp ../npt/topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.script_dir}/sub_mdrun_plumed.sh .", shell=True) # copy mdrun submission script
-                subprocess.run(f"cp {self.script_dir}/sub_mdrun_plumed_restart.sh .", shell=True) # copy restart submission script
-                subprocess.run(f"cp {self.script_dir}/plumed.dat ./plumed_temp.dat", shell=True) # copy pbmetad script
-                subprocess.run(f"cp {self.script_dir}/plumed_restart.dat ./plumed_r_temp.dat", shell=True) # copy pbmetad script
+                subprocess.run(f"cp {self.mold_dir}/complex/md/sub_mdrun_plumed.sh .", shell=True) # copy mdrun submission script
+                #subprocess.run(f"cp {self.mold_dir}/complex/md/sub_mdrun_plumed_restart.sh .", shell=True) # copy restart submission script
+                subprocess.run(f"cp {self.mold_dir}/complex/md/plumed.dat ./plumed_temp.dat", shell=True) # copy pbmetad script
+                subprocess.run(f"cp {self.mold_dir}/complex/md/plumed_restart.dat ./plumed_r_temp.dat", shell=True) # copy pbmetad script
                 # update PCC and MOL atom ids
                 self._create_plumed("./plumed_temp.dat", "./plumed.dat")
                 self._create_plumed("./plumed_r_temp.dat", "./plumed_restart.dat")
@@ -493,12 +515,24 @@ class FECalc():
                 subprocess.run(f"rm ./plumed_r_temp.dat", shell=True)
                 # copy nvt.mdp into pbmetad
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.script_dir}/md.mdp .", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/md/md.mdp .", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.script_dir}/md_noions.mdp ./md.mdp", shell=True, check=True)
-                # submit pbmetad job
+                    subprocess.run(f"cp {self.mold_dir}/complex/md/md_nions.mdp ./md.mdp", shell=True, check=True)
+            # submit pbmetad job. Resubmits until either the job fails 10 times or it succesfully finishes.
+            cnt = 1
+            try:
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed_restart.sh", check=True, shell=True)
+            except:
+                fail_flag = True
+                while fail_flag:
+                    try:
+                        cnt += 1
+                        subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
+                        fail_flag = False
+                    except:
+                        if cnt >= 10:
+                            raise RuntimeError("PBMetaD eun failed more than 10 times. Stopping.")
+    
         self._set_done(self.complex_dir/'pbmetad')
         return None
     
@@ -516,12 +550,12 @@ class FECalc():
         Path.mkdir(self.complex_dir/"reweight", exist_ok=True)
         with cd(self.complex_dir/"reweight"): # cd into complex/reweight
             # copy files into complex/reweight
-            subprocess.run("cp ../pbmetad/HILLS_COM .", shell=True, check=True)
-            subprocess.run("cp ../pbmetad/HILLS_MOL .", shell=True, check=True)
-            subprocess.run("cp ../pbmetad/HILLS_PCC .", shell=True, check=True)
-            subprocess.run("cp ../pbmetad/COLVAR .", shell=True, check=True)
-            subprocess.run(f"cp {self.script_dir}/sub_mdrun_rerun.sh .", shell=True) # copy mdrun submission script            
-            subprocess.run(f"cp {self.script_dir}/reweight.dat ./reweight_temp.dat", shell=True) # copy reweight script
+            #subprocess.run("cp ../pbmetad/HILLS_COM .", shell=True, check=True)
+            #subprocess.run("cp ../pbmetad/HILLS_ang .", shell=True, check=True)
+            subprocess.run("cp ../pbmetad/GRID_COM .", shell=True, check=True)
+            subprocess.run("cp ../pbmetad/GRID_ang .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/complex/reweight/sub_mdrun_rerun.sh .", shell=True) # copy mdrun submission script            
+            subprocess.run(f"cp {self.mold_dir}/complex/reweight/reweight.dat ./reweight_temp.dat", shell=True) # copy reweight script
             # update PCC and MOL atom ids
             self._create_plumed("./reweight_temp.dat", "./reweight.dat")
             # remove temp plumed file
@@ -634,47 +668,123 @@ class FECalc():
                 return ind
         raise ValueError("No stretch of the free energy profile is flat enough. Maybe PBMETAD is not converged?")
 
-    def _calc_FE(self) -> None:
-        # find the timestep where the hamiltonian is pseudo-constant
-        with cd(self.complex_dir/"pbmetad"): # cd into pbmetad directory
-            hills = self._load_plumed("HILLS_COM")
-        
-        for start_t in (range(len(hills["height"])//10000)):
-            if max(hills["height"][start_t*10000:]) < 0.04:
-                start_t = start_t*10
-                break
-        # get the free energy profile w.r.t. com-com distance
-        with cd(self.complex_dir/"reweight"): # cd into reweight directory
-            colvars = self._load_plumed("COLVAR_RW")
-        colvars = pd.DataFrame(colvars)
-        colvars['weights'] = np.exp(colvars['pb.bias']*1000/self.KbT) # Calculate reweighting weights
-        colvars = colvars.iloc[start_t * 10000 // 2:] # discard all data before pseudo-constant hamiltonian section
-        warnings.filterwarnings("ignore", category=RuntimeWarning)
-        FE_data = self._block_anal(colvars.dcom, colvars.weights, S_cor=True, folds=5) # block analysis to get FE and errors
-        # find the adsorption FE
-        # discard data from bins > 3.5 nm
-        FE_data = FE_data[FE_data.bin_center < 3.5]
-        # Attached
-        bin_widths = FE_data.bin_center.to_numpy().copy()[1:]
-        bin_widths -= FE_data.bin_center.to_numpy()[:-1]
-        FE_well_df = FE_data[FE_data.bin_center < 1.5]
-        FE_well = FE_well_df.f_all.to_numpy()
-        FE_well_int = simpson(y=np.exp(-FE_well*1000/self.KbT), x=FE_well_df.bin_center.to_numpy())
-        FE_well_val = -self.KbT*np.log(FE_well_int)/1000
-        FE_well_err = FE_data[FE_data.bin_center < 1.5].ste.to_numpy()
-        FE_well_sum = np.sum(np.exp(-FE_well*1000/self.KbT))
-        FE_well_err = np.exp(-FE_well*1000/self.KbT)/FE_well_sum * FE_well_err
-        FE_well_err = np.linalg.norm(FE_well_err)
-        # Free
-        flat_sec_s_ind = self._find_flat(FE_data.f_all, FE_data.bin_center)
-        FE_free_val = FE_data.f_all[flat_sec_s_ind:].mean()
-        FE_free_err = FE_data.ste[flat_sec_s_ind:].to_numpy()
-        FE_free_err = np.linalg.norm(FE_free_err)/len(FE_free_err)
-        # diff
-        FE_bind_val = FE_well_val - FE_free_val
-        FE_bind_err = np.sqrt(FE_well_err**2 + FE_free_err**2)
+    def _load_plumed(self):
+        data = {}
+        with open(self.complex_dir/"reweight"/"COLVAR", 'r') as f:
+            fields = f.readline()[:-1].split(" ")[2:] # last char is '/n' and the first two are '#!' and 'FIELDS'
+            for field in fields: # add fields to the colvars dict
+                data[field] = []
+            line = f.readline()
+            while line: # read up to LINE_LIM lines
+                if line[0] == "#": # Don't read comments
+                    continue
+                line_list = line.split()
+                for i, field in enumerate(fields):
+                    data[field].append(float(line_list[i]))
+        data = pd.DataFrame(data)
+        data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
+        init_time = 100 #ns
+        data = data.iloc[init_time * 10000 // 2:] # discard the first 100 ns of data
+        return data
+    
+    def _block_anal_2d(self, x, y, weights, block_size=None, folds=None, nbins=100):
+        # calculate histogram for all data to get bins
+        _, binsx, binsy = np.histogram2d(x, y, bins=nbins, weights=weights)
+        # calculate bin centers
+        xs = np.round((binsx[1:] + binsx[:-1])/2, 2)
+        ys = np.round((binsy[1:] + binsy[:-1])/2, 2)
+        # find block sizes
+        if block_size is None:
+            if folds is None:
+                block_size = 5000*50 #50 ns blocks
+                folds = len(x)//block_size
+            else:
+                block_size = len(x)//folds
+        else:
+            folds = len(x)//block_size
 
-        return FE_bind_val, FE_bind_err
+        # data frame to store the blocks
+        data = pd.DataFrame()
+        xs_unrolled = []
+        ys_unrolled = []
+        for i in xs:
+            for j in ys:
+                xs_unrolled.append(i)
+                ys_unrolled.append(j)
+        
+        data['x'] = xs_unrolled
+        data['y'] = ys_unrolled
+
+        # calculate free energy for each fold
+        for fold in range(folds):
+            x_fold = x[block_size*fold:(fold+1)*block_size]
+            y_fold = y[block_size*fold:(fold+1)*block_size]
+            weights_fold = weights[block_size*fold:(fold+1)*block_size]
+            counts, _, _ = np.histogram2d(x_fold, y_fold, bins=[binsx, binsy], weights=weights_fold)
+            counts[counts==0] = np.nan # discard empty bins
+            free_energy = -self.KbT*np.log(counts)/1000 #kJ/mol
+            free_energy_unrolled = []
+            for i in range(len(xs)):
+                for j in range(len(ys)):
+                    free_energy_unrolled.append(free_energy[i, j])
+            data[f"f_{fold}"] = free_energy_unrolled
+            # Entropy correction along x axis
+            data[f"f_{fold}"] += 2*self.KbT*np.log(data.x)/1000
+        
+        # de-mean the folds for curve matching
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
+        for fold in range(folds):
+            data[f"f_{fold}"] = data[f"f_{fold}"] - data[f"f_{fold}"].mean()
+        
+        # calcualte standard deviation and standard error
+        data['std'] = data[[f"f_{fold}" for fold in range(folds)]].apply(np.std, axis=1)
+        data['ste'] = 1/np.sqrt(folds)*data['std']
+
+        return data
+    
+    def _calc_region_int(self, data):
+        """
+        data = DataFrame with columns x(dcom), y(angle), F(free energy)
+        """
+        data["exp"] = np.exp(-data.F*1000/self.KbT)
+        Y_integrand = {"X": [], "exp":[]}
+        # integrate over Y
+        for x in data.x.unique():
+            FE_this_x = data[data.x == x]
+            Y_integrand["X"].append(x)
+            Y_integrand["exp"].append(simpson(y=FE_this_x.exp.to_numpy(), x=FE_this_x.y.to_numpy()))
+        
+        Y_integrand_pd = pd.DataFrame(Y_integrand)
+        # integrate over X
+        integrand = simpson(y=Y_integrand_pd.exp.to_numpy(), x=Y_integrand_pd.X.to_numpy())
+        
+        return -self.KbT*np.log(integrand)/1000
+
+    def _calc_deltaF(self, bound_data, unbound_data):
+        r_int = self._calc_region_int(bound_data.copy())
+        p_int = self._calc_region_int(unbound_data.copy())
+        return r_int - p_int
+    
+    def _calc_FE(self) -> None:
+        colvars = self._load_plumed() # read colvars
+        analysis_data = colvars[(colvars.dcom < 2.5)] # discard data from dcom>2.5
+        # block analysis
+        block_anal_data = self._block_anal_2d(analysis_data.dcom, analysis_data.ang,
+                                        analysis_data.weights, nbins=50, block_size=5000*20)
+        f_list = []
+        f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
+        for i in f_cols:
+            # bound = 0<=dcom<=1.5 nm
+            bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', i, 'ste']]
+            bound_data.rename(columns={i: 'F'}, inplace=True)
+            bound_data.dropna(inplace=True)
+            # unbound = 2.0<dcom<2.5~inf nm 
+            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', i, 'ste']]
+            unbound_data.rename(columns={i: 'F'}, inplace=True)
+            unbound_data.dropna(inplace=True)
+            f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data)[0])
+        f_list = np.array(f_list)
+        return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
     def get_FE(self) -> float:
         """Wrapper for FE caclculations. Create PCC, call acpype, 

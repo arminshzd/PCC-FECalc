@@ -1,0 +1,13 @@
+tolerance 10.0
+filetype pdb
+output complex.pdb
+
+structure PCC.pdb
+    number 1
+    inside cube 0 0 0 30
+end structure
+
+structure MOL.pdb
+    number 1
+    inside cube 0 0 0 30
+end structure

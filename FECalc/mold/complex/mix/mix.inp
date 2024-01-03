@@ -1,4 +1,4 @@
-tolerance 2.0
+tolerance 10.0
 filetype pdb
 output complex.pdb
 

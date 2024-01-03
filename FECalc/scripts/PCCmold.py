@@ -33,7 +33,7 @@ cmd.do("refresh_wizard")
 
 for i, resid in enumerate(residnums):
     # Mutate residue
-    print(f"Mutating residue {resid} to {mutations[i]}")
+    #print(f"Mutating residue {resid} to {mutations[i]}")
     cmd.get_wizard().set_mode(mutations[i]) # mutate to this
     cmd.get_wizard().do_select(resid) # at this location. "/" is necessary
 
@@ -50,7 +50,7 @@ for i, resid in enumerate(residnums):
 
 # invert mutated residues to get D-AAs
 for i, resid in enumerate(residnums):
-    print(f"Inverting residue {resid}")
+    #print(f"Inverting residue {resid}")
     cmd.edit(resid+"ca", resid+"n", resid+"c")
     cmd.invert()
 
