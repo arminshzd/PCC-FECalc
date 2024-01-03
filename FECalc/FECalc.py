@@ -533,7 +533,7 @@ class FECalc():
                         if cnt >= 10:
                             raise RuntimeError("PBMetaD eun failed more than 10 times. Stopping.")
     
-        self._set_done(self.complex_dir/'pbmetad')
+        self._set_done(self.complex_dir/'md')
         return None
     
     def _reweight(self, wait: bool = True) -> None:
@@ -552,8 +552,8 @@ class FECalc():
             # copy files into complex/reweight
             #subprocess.run("cp ../pbmetad/HILLS_COM .", shell=True, check=True)
             #subprocess.run("cp ../pbmetad/HILLS_ang .", shell=True, check=True)
-            subprocess.run("cp ../pbmetad/GRID_COM .", shell=True, check=True)
-            subprocess.run("cp ../pbmetad/GRID_ang .", shell=True, check=True)
+            subprocess.run("cp ../md/GRID_COM .", shell=True, check=True)
+            subprocess.run("cp ../md/GRID_ang .", shell=True, check=True)
             subprocess.run(f"cp {self.mold_dir}/complex/reweight/sub_mdrun_rerun.sh .", shell=True) # copy mdrun submission script            
             subprocess.run(f"cp {self.mold_dir}/complex/reweight/reweight.dat ./reweight_temp.dat", shell=True) # copy reweight script
             # update PCC and MOL atom ids
@@ -814,7 +814,7 @@ class FECalc():
         print("\tDone.", flush=True)
         # run PBMetaD
         print("Running PBMetaD:", end="", flush=True)
-        if not self._check_done(self.complex_dir/'pbmetad'):
+        if not self._check_done(self.complex_dir/'md'):
             self._pbmetaD()
         print("\tDone.", flush=True)
         # reweight
