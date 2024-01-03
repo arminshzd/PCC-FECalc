@@ -40,5 +40,5 @@ source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2
 
 gmx grompp -f npt.mdp -c ../nvt/nvt.gro -r ../nvt/nvt.gro -t ../nvt/nvt.cpt -p topol.top -o npt.tpr
 
-gmx mdrun -pin on -ntomp "$NP" -deffnm npt
+gmx mdrun -ntomp "$NP" -deffnm npt
 

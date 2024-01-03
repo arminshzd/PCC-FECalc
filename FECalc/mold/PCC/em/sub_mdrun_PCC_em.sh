@@ -53,7 +53,7 @@ else
     gmx grompp -f em.mdp -c PCC_sol.gro -p topol.top -o em.tpr
 fi
 
-gmx mdrun -pin on -ntomp "$NP" -deffnm em
+gmx mdrun -ntomp "$NP" -deffnm em
 
 # Get the last frame
 frames_dir="frames.temp"

@@ -38,5 +38,5 @@ module load openmpi/4.1.1+gcc-10.1.0 cuda/11.2
 
 source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2-256/bin/GMXRC
 
-gmx mdrun -pin on -ntomp "$NP" -plumed reweight.dat -s ../md/md.tpr -rerun ../md/md.xtc
+gmx mdrun -ntomp "$NP" -plumed reweight.dat -s ../md/md.tpr -rerun ../md/md.xtc
 

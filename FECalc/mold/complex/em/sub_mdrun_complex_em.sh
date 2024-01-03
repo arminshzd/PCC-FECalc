@@ -53,4 +53,4 @@ else
     gmx grompp -f em.mdp -c complex_sol.gro -p topol.top -o em.tpr -maxwarn 1
 fi
 
-gmx mdrun -pin on -ntomp "$NP" -deffnm em
+gmx mdrun -ntomp "$NP" -deffnm em
