@@ -58,18 +58,32 @@ ang: CUSTOM ...
     FUNC=x*(step(y+0.00000001)-step(-y-0.00000001))
     PERIODIC=-pi,pi
 ...
+# directional angle
+v3: DISTANCE ATOMS=v1a,MOLcom SCALED_COMPONENTS
+v3s: CUSTOM ...
+	ARG=v3.a,v3.b,v3.c
+	VAR=x,y,z
+	FUNC=sqrt(x*x+y*y+z*z)
+	PERIODIC=NO
+...
+v3cos: CUSTOM ...
+	ARG=v3.a,v3.b,v3.c,vz.a,vz.b,vz.c,v3s,vzs
+	VAR=x3,y3,z3,zx,zy,zz,A,B
+	FUNC=(x3*zx+y3*zy+z3*zz)/A/B
+	PERIODIC=NO
+...
 # BIAS
-uwall: UPPER_WALLS ARG=dcom AT=3.0 KAPPA=150.0 EXP=2 EPS=1 OFFSET=0
+uwall: UPPER_WALLS ARG=dcom AT=2.5 KAPPA=250.0 EXP=2 EPS=1 OFFSET=0
 pb: PBMETAD ...
-    ARG=dcom,ang SIGMA=0.05,0.1 HEIGHT=2.0 TEMP=300 PACE=500 BIASFACTOR=20
-    GRID_MIN=0.0,-pi GRID_MAX=5.0,pi GRID_BIN=500,500
-	INTERVAL_MIN=0.0,-4.0
-	INTERVAL_MAX=3.0,4.0
-    FILE=HILLS_COM,HILLS_ang
+    ARG=dcom,ang,v3cos SIGMA=0.05,0.1,0.05 HEIGHT=3.0 TEMP=300 PACE=500 BIASFACTOR=20
+    GRID_MIN=0.0,-pi,-1.0 GRID_MAX=5.0,pi,1.0
+	INTERVAL_MIN=0.0,-3.2,-1.0
+	INTERVAL_MAX=2.5,3.2,1.0
+    FILE=HILLS_COM,HILLS_ang,HILLS_cos
     GRID_WSTRIDE=1000
-    GRID_WFILES=GRID_COM,GRID_ang
+    GRID_WFILES=GRID_COM,GRID_ang,GRID_cos
 	RESTART=YES
-	GRID_RFILES=GRID_COM,GRID_ang
+	GRID_RFILES=GRID_COM,GRID_ang,GRID_cos
 ...
 
-PRINT ARG=dcom,ang,angorig,dc,pb.bias,uwall.bias STRIDE=100 FILE=COLVAR
+PRINT ARG=dcom,ang,v3cos,dc,pb.bias,uwall.bias STRIDE=100 FILE=COLVAR

@@ -1,8 +1,7 @@
 {
     "scripts_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FECalc/scripts",
     "FEN_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FE_DATA/Fentanyl/export/",
-    "DEC_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FE_DATA/BenzylFentanyl/export/",
-    "pymol_dir22": "/project/andrewferguson/armin/pymol/pymol/pymol",
+    "DEC_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FE_DATA/Acetaminophen/export/",
     "pymol_dir": "module load pymol && pymol",
     "packmol_dir_MW3": "/project/andrewferguson/armin/packmol/packmol-20.14.2/packmol",
     "packmol_dir": "/project/andrewferguson/armin/packmol/packmol_mw2/packmol-20.14.2/packmol",

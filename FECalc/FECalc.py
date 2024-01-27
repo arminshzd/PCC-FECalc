@@ -3,7 +3,7 @@ import re
 import subprocess
 import json
 from pathlib import Path
-import warnings
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -59,7 +59,9 @@ class FECalc():
             if not base_dir.is_dir():
                 raise ValueError(f"{base_dir} is not a directory.")
         else:
-            print("Base directory does not exist. Creating...")
+            now = datetime.now()
+            now = now.strftime("%m/%d/%Y, %H:%M:%S")
+            print(f"{now}: Base directory does not exist. Creating...")
             base_dir.mkdir()        
         self.base_dir = base_dir # base directory to store files
 
@@ -77,6 +79,7 @@ class FECalc():
             self.target_dir = Path(self.settings['DEC_dir'])
         else:
             raise ValueError(f"Target {target} is not defined. Select 'FEN' for Fentanyl or 'DEC' for Benzyl-Fentanyl.")
+        self.target = target
         
         self.AAdict31 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
                          'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
@@ -93,11 +96,68 @@ class FECalc():
         self.PCC_list_atom = [] # list of PCC atom names (str)
         self.free_e = None # Free energy of binding kJ/mol
         self.free_e_err = None # Error in free energy of binding kJ/mol
+        self.K = None # Binding constant
+        self.K_err = None # Error in binding constant
         self.KbT = float(self.settings["T"]) * 8.314 # System temperature in J/mol
 
         self.pymol = Path(self.settings['pymol_dir']) # path to pymol installation
         self.packmol = Path(self.settings['packmol_dir']) # path to packmol installation
         self.acpype = Path(self.settings['acpype_dir']) # Path to acpype conda env
+    
+    def _read_pdb(self, fname):
+        with open(fname) as f:
+            f_cnt = f.readlines()
+
+        molecule_types = []
+        atom_types = []
+        atom_coordinates = []
+        for line in f_cnt:
+            line_list = line.split()
+            if line_list[0] == "ATOM" or line_list[0] == "HETATM":
+                molecule_types.append(line_list[3])
+                atom_types.append(line_list[2])
+                atom_coordinates.append(np.array([float(line_list[6]), float(line_list[7]), float(line_list[8])]))
+        return np.array(molecule_types), np.array(atom_types), np.array(atom_coordinates)
+
+    def _write_coords_to_pdb(self, f_in, f_out, coords):
+        with open(f_in) as f:
+            f_cnt = f.readlines()
+        
+        new_file = []
+        atom_i = 0
+        for line in f_cnt:
+            line_list = line.split()
+            if line_list[0] == "ATOM" or line_list[0] == "HETATM":
+                x = f"{coords[atom_i, 0]:.3f}"
+                x = " "*(8-len(x)) + x
+                y = f"{coords[atom_i, 1]:.3f}"
+                y = " "*(8-len(y)) + y
+                z = f"{coords[atom_i, 2]:.3f}"
+                z = " "*(8-len(z)) + z
+                new_line = line[:30]+x+y+z+line[54:]
+                atom_i += 1
+            else:
+                new_line = line
+        
+            new_file.append(new_line)
+        
+        with open(f_out, "w") as f:
+            f.writelines(new_file)
+
+        return None
+    
+    def _write_report(self):
+        report = {
+            "PCC": self.PCC_code,
+            "Target": self.target,
+            "FE": self.free_e,
+            "FE_error": self.free_e_err,
+            "K": self.K,
+            "K_err": self.K_err
+        }
+        with open(self.base_dir/"metadata.JSON", 'w') as f:
+            json.dump(report, f, indent=3)
+        return None
     
     def _check_done(self, stage: str) -> bool:
         """
@@ -311,12 +371,9 @@ class FECalc():
                 f.write(f"\t{i}\t1\t1000\t1000\t1000\n")
         return None
 
-    def _mix(self, wait: bool = True) -> None:
+    def _mix(self) -> None:
         """
-        Create the simulation box with MOL and PCC, solvate, and equilibrate.
-
-        Args:
-            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+        Create the simulation box with MOL and PCC, and create initial structures for both sides of the PCC.
 
         Returns:
             None
@@ -337,7 +394,22 @@ class FECalc():
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
                 top.create_topol()
+
             self._set_done(self.complex_dir)
+        
+        return None
+    
+    def _eq_complex(self, wait: bool = True) -> None:
+        """
+        Solvate, and equilibrate the complex.
+
+        Args:
+            rot_key: (int): Which side of the PCC to equilibrate
+            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+
+        Returns:
+            None
+        """
         ## EM
         if not self._check_done(self.complex_dir/"em"):
             # create complex/em dir
@@ -349,7 +421,7 @@ class FECalc():
                 subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
                 subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
-                subprocess.run("cp ../complex.pdb .", shell=True, check=True)
+                subprocess.run(f"cp ../complex.pdb .", shell=True, check=True)
                 subprocess.run("cp ../topol.top .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/em/ions.mdp .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/em/em.mdp .", shell=True, check=True)
@@ -360,17 +432,17 @@ class FECalc():
         with cd(self.complex_dir/"em"): # cd into complex/em
             # update atom ids
             self._get_atom_ids("./em.gro")
+        ## NVT
         if not self._check_done(self.complex_dir/"nvt"):
-            ## NVT
             # create complex/nvt dir
             Path.mkdir(self.complex_dir/"nvt", exist_ok=True)
             with cd(self.complex_dir/"nvt"): # cd into complex/nvt
                 # copy files into complex/nvt
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/posre_MOL.itp .", shell=True, check=True)
                 subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
+                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
+                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../em/topol.top .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/nvt/sub_mdrun_complex_nvt.sh .", shell=True) # copy mdrun submission script
                 # copy nvt.mdp into nvt
@@ -382,16 +454,16 @@ class FECalc():
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_nvt.sh", check=True, shell=True)
             self._set_done(self.complex_dir/'nvt')
+        ## NPT
         if not self._check_done(self.complex_dir/"npt"):
-            ## NPT
             # create complex/npt dir
             Path.mkdir(self.complex_dir/"npt", exist_ok=True)
             with cd(self.complex_dir/"npt"): # cd into complex/npt
                 # copy files into complex/npt
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/posre_MOL.itp .", shell=True, check=True)
+                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
                 subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/posre_PCC.itp .", shell=True, check=True)
+                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
                 subprocess.run("cp ../nvt/topol.top .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/npt/sub_mdrun_complex_npt.sh .", shell=True) # copy mdrun submission script
@@ -399,13 +471,12 @@ class FECalc():
                 if self.PCC_charge != 0:
                     subprocess.run(f"cp {self.mold_dir}/complex/npt/npt.mdp .", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_noions.mdp ./npt.mdp", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_nions.mdp ./npt.mdp", shell=True, check=True)
                 # submit npt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_npt.sh npt", shell=True)
             self._set_done(self.complex_dir/'npt')
-        return None
-    
+
     def _is_continuous(self, ids: list) -> bool:
         """
         Check if `ids` contains a continuous list of atom ids.
@@ -450,11 +521,22 @@ class FECalc():
         # define atom ranges for PCC and MOL
         MOL_atom_id = f"{min(self.MOL_list)}-{max(self.MOL_list)}"
         PCC_atom_id = f"{min(self.PCC_list)}-{max(self.PCC_list)}"
-        v1a_atom_ids = f"""{self.PCC_list[self.PCC_list_atom.index("N4")]},{self.PCC_list[self.PCC_list_atom.index("C10")]},{self.PCC_list[self.PCC_list_atom.index("C11")]}"""
-        v1b_atom_ids = f"""{self.PCC_list[self.PCC_list_atom.index("C1")]},{self.PCC_list[self.PCC_list_atom.index("C2")]},{self.PCC_list[self.PCC_list_atom.index("C3")]}"""
-        vrb_atom_ids = f"""{self.PCC_list[self.PCC_list_atom.index("N1")]},{self.PCC_list[self.PCC_list_atom.index("N2")]},{self.PCC_list[self.PCC_list_atom.index("N3")]}"""
-        v2a_atom_ids = f"""{self.MOL_list[self.MOL_list_atom.index("C")]},{self.MOL_list[self.MOL_list_atom.index("C1")]},{self.MOL_list[self.MOL_list_atom.index("C2")]}"""
-        v2b_atom_ids = f"""{self.MOL_list[self.MOL_list_atom.index("N1")]},{self.MOL_list[self.MOL_list_atom.index("C13")]},{self.MOL_list[self.MOL_list_atom.index("C21")]}"""
+        a_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in ["N4", "C10", "C11", "O1"]]
+        b_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in ["C1", "C2", "C3", "O"]]
+        v1a_atom_ids = "".join([f"{i}," for i in a_list])[:-1]
+        v1b_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
+        b_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in ["N1", "N2", "N3", "C7", "C8"]]
+        vrb_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
+        if self.target == "FEN":
+            a_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in ["C", "C1", "C2"]]
+            b_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in ["N1", "C13", "C21"]]
+        else:
+            a_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in ["C", "C1", "N"]]
+            b_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in [f"C{j}" for j in range(2, 8)]]
+        
+        v2a_atom_ids = "".join([f"{i}," for i in a_list])[:-1]
+        v2b_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
+
         # replace new ids
         for i, line in enumerate(cnt):
             if "$1" in line:
@@ -484,6 +566,7 @@ class FECalc():
         Run PBMetaD from equilibrated structure.
 
         Args:
+            rot_key: (int): Which side of the PCC to run.
             wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
 
         Returns:
@@ -494,17 +577,18 @@ class FECalc():
         with cd(self.complex_dir/"md"): # cd into complex/pbmetad
             wait_str = " --wait " if wait else "" # whether to wait for pbmetad to finish before exiting
             if Path.exists(self.complex_dir/"md"/"md.cpt"):
-                print(" Resuming previous run...")
+                now = datetime.now()
+                now = now.strftime("%m/%d/%Y, %H:%M:%S")
+                print(f"{now}: Resuming previous run...")
             else:
                 # copy files into complex/pbmetad
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/posre_MOL.itp .", shell=True, check=True)
+                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
                 subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/posre_PCC.itp .", shell=True, check=True)
+                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
                 subprocess.run("cp ../complex.itp .", shell=True, check=True)
                 subprocess.run("cp ../npt/topol.top .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/md/sub_mdrun_plumed.sh .", shell=True) # copy mdrun submission script
-                #subprocess.run(f"cp {self.mold_dir}/complex/md/sub_mdrun_plumed_restart.sh .", shell=True) # copy restart submission script
                 subprocess.run(f"cp {self.mold_dir}/complex/md/plumed.dat ./plumed_temp.dat", shell=True) # copy pbmetad script
                 subprocess.run(f"cp {self.mold_dir}/complex/md/plumed_restart.dat ./plumed_r_temp.dat", shell=True) # copy pbmetad script
                 # update PCC and MOL atom ids
@@ -527,11 +611,14 @@ class FECalc():
                 while fail_flag:
                     try:
                         cnt += 1
+                        subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=True)
+                        subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=True)
+                        subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=True)
                         subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
                         fail_flag = False
                     except:
                         if cnt >= 10:
-                            raise RuntimeError("PBMetaD eun failed more than 10 times. Stopping.")
+                            raise RuntimeError("PBMetaD run failed more than 10 times. Stopping.")
     
         self._set_done(self.complex_dir/'md')
         return None
@@ -541,6 +628,7 @@ class FECalc():
         Reweight the results of the pbmetad run.
 
         Args:
+            rot_key: (int): Which side of the PCC to run.
             wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
 
         Returns:
@@ -554,6 +642,7 @@ class FECalc():
             #subprocess.run("cp ../pbmetad/HILLS_ang .", shell=True, check=True)
             subprocess.run("cp ../md/GRID_COM .", shell=True, check=True)
             subprocess.run("cp ../md/GRID_ang .", shell=True, check=True)
+            subprocess.run("cp ../md/GRID_cos .", shell=True, check=True)
             subprocess.run(f"cp {self.mold_dir}/complex/reweight/sub_mdrun_rerun.sh .", shell=True) # copy mdrun submission script            
             subprocess.run(f"cp {self.mold_dir}/complex/reweight/reweight.dat ./reweight_temp.dat", shell=True) # copy reweight script
             # update PCC and MOL atom ids
@@ -565,43 +654,6 @@ class FECalc():
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_rerun.sh", check=True, shell=True)
         self._set_done(self.complex_dir/'reweight')
         return None
-    
-    def _load_plumed(self, fname: str, line_lim: int = None):
-        """
-        Helper function to read PLUMED output files.
-
-        Args:
-            fname (str): name of the plumed output file
-            line_lim(int, optional): number of lines to read
-        
-        Returns:
-            data (dict[str: list]): dictionary containing `field`: values
-        """
-        data = {}
-        with open(fname, 'r') as f:
-            fields = f.readline()[:-1].split(" ")[2:] # last char is '/n' and the first two are '#!' and 'FIELDS'
-            for field in fields: # add fields to the colvars dict
-                data[field] = []
-            line_cnt = 0
-            cond = True
-            while cond: # read up to LINE_LIM lines
-                line = f.readline()
-                if not line:
-                    break
-                if line[0] == "#": # Don't read comments
-                    continue
-                
-                line_list = line.split()
-                try: # account for incomplete files (useful when the sims is still running)
-                    for i, field in enumerate(fields):
-                        data[field].append(float(line_list[i]))
-                except:
-                    break
-                finally:
-                    line_cnt += 1
-                    if line_lim is not None:
-                        cond = (line_cnt<line_lim)
-        return data
     
     def _block_anal(self, x: list, weights: list, S_cor: bool = False, folds: int = 5):
         """
@@ -647,27 +699,28 @@ class FECalc():
         data_s["f_all"] = data_s["f_all"] - data_s["f_all"].mean()
         return data_s
 
-    def _find_flat(self, y, x, max_df = 5):
+    def _find_converged(self):
         """
-        Find the section of the PMF that is flat enough to be considered constant.
-
-        Args:
-        y (ListLike): Free energy list
-        x (ListLike): Colvar list
-        max_df (float, optional): maximum allowable gradient
-
-        Returns:
-        ind (int): Starting index of the flat section\
-        
-        Raises:
-        ValueError: When no flat section is found.
+        Find the simulation time from which point the simulations can be considered converged.
+        This is used to discard the initial stage of the simulation where the bias value is <85% of the maximum.
         """
-        dx = np.gradient(y, x)
-        for ind in range(len(dx)):
-            if np.mean(np.abs(dx[ind:])) < max_df and (ind < len(dx) - 10):
-                return ind
-        raise ValueError("No stretch of the free energy profile is flat enough. Maybe PBMETAD is not converged?")
-
+        with open(self.complex_dir/"md"/"COLVAR", 'r') as f:
+            fields = f.readline()[:-1].split(" ")[2:] # last char is '/n' and the first two are '#!' and 'FIELDS'
+            time_ind = fields.index("time")
+            bias_ind = fields.index("pb.bias")
+            bias = []
+            line = f.readline()
+            while line: # read up to LINE_LIM lines
+                if line[0] == "#": # Don't read comments
+                    line = f.readline()
+                    continue
+                line_list = line.split()
+                bias.append([float(line_list[time_ind]), float(line_list[bias_ind])])
+                line = f.readline()
+            bias = np.asarray(bias)
+            bias = bias[bias[:, 1] > 0.8*bias[:, 1].max()]
+            return bias[0, 0]//1000
+    
     def _load_plumed(self):
         data = {}
         with open(self.complex_dir/"reweight"/"COLVAR", 'r') as f:
@@ -685,7 +738,7 @@ class FECalc():
                 line = f.readline()
         data = pd.DataFrame(data)
         data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
-        init_time = 100 #ns
+        init_time = self._find_converged() #ns
         data = data.iloc[init_time * 10000 // 2:] # discard the first 100 ns of data
         return data
     
@@ -771,7 +824,7 @@ class FECalc():
         colvars = self._load_plumed() # read colvars
         # block analysis
         block_anal_data = self._block_anal_2d(colvars.dcom, colvars.ang,
-                                        colvars.weights, nbins=50, block_size=5000*20)
+                                        colvars.weights, nbins=50, block_size=5000*100)
         f_list = []
         f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
         for i in f_cols:
@@ -779,50 +832,93 @@ class FECalc():
             bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', i, 'ste']]
             bound_data.rename(columns={i: 'F'}, inplace=True)
             bound_data.dropna(inplace=True)
-            # unbound = 2.0<dcom<2.5~inf nm 
-            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', i, 'ste']]
+            # unbound = 2.0<dcom<2.4~inf nm 
+            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.4)][['x', 'y', i, 'ste']]
             unbound_data.rename(columns={i: 'F'}, inplace=True)
             unbound_data.dropna(inplace=True)
             f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
         f_list = np.array(f_list)
         return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
-    def get_FE(self) -> float:
+    def _calc_K(self) -> tuple:
+        self.K = np.exp(-self.free_e*1000/self.KbT)
+        self.K_err = self.K*self.free_e_err*1000/self.KbT
+        return self.K, self.K_err
+    
+    def _postprocess(self) -> None:
+        # calc FE
+        if not (self.base_dir/"metadata.JSON").exists():
+            free_e, free_e_err = self._calc_FE()
+            self.free_e = free_e
+            self.free_e_err = free_e_err
+            # calculate Ks
+            self._calc_K()
+            # write report
+            self._write_report()
+        return None
+
+    
+    def run(self) -> float:
         """Wrapper for FE caclculations. Create PCC, call acpype, 
         minimize, create complex, and run PBMetaD.
 
         Returns:
-            self.free_e (float): Free energy of adsorption b/w MOL and PCC
+            self.free_e (dict): Free energy of adsorption b/w MOL and PCC
+            self.free_e_err (dict): Error in free energy of adsorption b/w MOL and PCC
         """
         # create PCC
-        print("Running pymol:", end="", flush=True)
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Running pymol:", end="", flush=True)
         if not self._check_done(self.PCC_dir):
             self._create_pcc()
         print("\tDone.", flush=True)
         # get params
-        print("Running acpype:", end="", flush=True)
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Running acpype:", end="", flush=True)
         if not self._check_done(self.PCC_dir/"PCC.acpype"):
             self._get_params()
         print("\tDone.", flush=True)
         # minimize PCC
-        print("Minimizing PCC:", end="", flush=True)
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Minimizing PCC:", end="", flush=True)
         if not self._check_done(self.PCC_dir/'em'):
             self._minimize_PCC()
         print("\tDone.", flush=True)
-        # create and minimize the complex
-        print("Creating complex box and minimizing:", end="", flush=True)
-        self._mix()
+        # create the complex
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Creating complex box:", end="", flush=True)
+        if not self._check_done(self.complex_dir):
+            self._mix()
+        print("\tDone.", flush=True)
+        # minimize the complex
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Minimizing and equilibrating the complex box:", end="", flush=True)
+        self._eq_complex()
         print("\tDone.", flush=True)
         # run PBMetaD
-        print("Running PBMetaD:", end="", flush=True)
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Running PBMetaD:", end="", flush=True)
         if not self._check_done(self.complex_dir/'md'):
             self._pbmetaD()
         print("\tDone.", flush=True)
         # reweight
-        print("Reweighting PBMetaD results:", end="", flush=True)
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Reweighting PBMetaD results:", end="", flush=True)
         if not self._check_done(self.complex_dir/'reweight'):
             self._reweight()
         print("\tDone.", flush=True)
-        # calc FE
-        self.free_e, self.free_e_err = self._calc_FE()
+        #postprocess
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Postprocessing:", end="", flush=True)
+        self._postprocess()
+        print("\tDone.", flush=True)
+        
         return self.free_e, self.free_e_err

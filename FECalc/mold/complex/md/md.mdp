@@ -1,7 +1,7 @@
 title                   = Production MD 
 ; Run parameters
 integrator              = md        ; leap-frog integrator
-nsteps                  = 300000000 ; 2 * 300000000 = 600000 ps (600 ns)
+nsteps                  = 400000000 ; 2 * 400000000 = 800000 ps (800 ns)
 dt                      = 0.002     ; 2 fs
 ; Output control
 nstxout                 = 0         ; suppress bulky .trr file by specifying 

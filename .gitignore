@@ -13,4 +13,7 @@ __pycache__/
 /MFMOBO/testbench.ipynb
 /MFMOBO/testbench.py
 /FECalc/test/
+/FECalc/__pycache__/
 testbench_FECalc.py
+/submissions/
+/*.out
