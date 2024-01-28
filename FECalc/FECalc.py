@@ -739,7 +739,8 @@ class FECalc():
         data = pd.DataFrame(data)
         data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
         init_time = self._find_converged() #ns
-        data = data.iloc[init_time * 10000 // 2:] # discard the first 100 ns of data
+        init_idx = int(init_time * 10000 // 2)
+        data = data.iloc[init_idx:] # discard the first 100 ns of data
         return data
     
     def _block_anal_2d(self, x, y, weights, block_size=None, folds=None, nbins=100):
