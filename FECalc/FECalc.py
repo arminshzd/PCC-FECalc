@@ -474,7 +474,7 @@ class FECalc():
                     subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_nions.mdp ./npt.mdp", shell=True, check=True)
                 # submit npt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_npt.sh npt", shell=True)
+                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_npt.sh", shell=True)
             self._set_done(self.complex_dir/'npt')
 
     def _is_continuous(self, ids: list) -> bool:
