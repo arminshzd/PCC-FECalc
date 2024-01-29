@@ -614,7 +614,11 @@ class FECalc():
                         subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=True)
                         subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=True)
                         subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=True)
+                        now = datetime.now()
+                        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+                        print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
                         subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
+                        print()
                         fail_flag = False
                     except:
                         if cnt >= 10:
@@ -739,6 +743,9 @@ class FECalc():
         data = pd.DataFrame(data)
         data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
         init_time = self._find_converged() #ns
+        print(f"INFO: Discarding initial {init_time} ns of data for free energy calculations.")
+        if init_time > 300:
+            raise RuntimeError("Large hill depositions detected past 300 ns mark. Check the convergence of the PBMetaD calculations.")
         init_idx = int(init_time * 10000 // 2)
         data = data.iloc[init_idx:] # discard the first 100 ns of data
         return data
@@ -870,56 +877,58 @@ class FECalc():
         # create PCC
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Running pymol:", end="", flush=True)
+        print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target}")
+        print(f"{now}: Running pymol: ", end="", flush=True)
         if not self._check_done(self.PCC_dir):
             self._create_pcc()
         print("\tDone.", flush=True)
         # get params
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Running acpype:", end="", flush=True)
+        print(f"{now}: Running acpype: ", end="", flush=True)
         if not self._check_done(self.PCC_dir/"PCC.acpype"):
             self._get_params()
         print("\tDone.", flush=True)
         # minimize PCC
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Minimizing PCC:", end="", flush=True)
+        print(f"{now}: Minimizing PCC: ", end="", flush=True)
         if not self._check_done(self.PCC_dir/'em'):
             self._minimize_PCC()
         print("\tDone.", flush=True)
         # create the complex
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Creating complex box:", end="", flush=True)
+        print(f"{now}: Creating complex box: ", end="", flush=True)
         if not self._check_done(self.complex_dir):
             self._mix()
         print("\tDone.", flush=True)
         # minimize the complex
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Minimizing and equilibrating the complex box:", end="", flush=True)
+        print(f"{now}: Minimizing and equilibrating the complex box: ", end="", flush=True)
         self._eq_complex()
         print("\tDone.", flush=True)
         # run PBMetaD
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Running PBMetaD:", end="", flush=True)
+        print(f"{now}: Running PBMetaD: ", end="", flush=True)
         if not self._check_done(self.complex_dir/'md'):
             self._pbmetaD()
-        print("\tDone.", flush=True)
+        print("\tDone.")
         # reweight
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Reweighting PBMetaD results:", end="", flush=True)
+        print(f"{now}: Reweighting PBMetaD results: ", end="", flush=True)
         if not self._check_done(self.complex_dir/'reweight'):
             self._reweight()
         print("\tDone.", flush=True)
         #postprocess
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Postprocessing:", end="", flush=True)
+        print(f"{now}: Postprocessing: ")
         self._postprocess()
-        print("\tDone.", flush=True)
+        print(f"{now}: All steps completed.")
+        print("-"*30 + "Finished" + "-"*30)
         
         return self.free_e, self.free_e_err
