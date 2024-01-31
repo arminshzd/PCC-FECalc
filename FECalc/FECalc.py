@@ -722,8 +722,8 @@ class FECalc():
                 bias.append([float(line_list[time_ind]), float(line_list[bias_ind])])
                 line = f.readline()
             bias = np.asarray(bias)
-            bias = bias[bias[:, 1] > 0.8*bias[:, 1].max()]
-            return bias[0, 0]//1000
+            bias = bias[bias[:, 1] < 0.8*bias[:, 1].max()]
+            return bias[-1, 0]//1000
     
     def _load_plumed(self):
         data = {}
