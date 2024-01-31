@@ -17,3 +17,4 @@ __pycache__/
 testbench_FECalc.py
 /submissions/
 /*.out
+/3d_int_test.*

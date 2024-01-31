@@ -742,7 +742,8 @@ class FECalc():
                 line = f.readline()
         data = pd.DataFrame(data)
         data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
-        init_time = self._find_converged() #ns
+        #init_time = self._find_converged() #ns
+        init_time = 100 # ns
         print(f"INFO: Discarding initial {init_time} ns of data for free energy calculations.")
         if init_time > 300:
             raise RuntimeError("Large hill depositions detected past 300 ns mark. Check the convergence of the PBMetaD calculations.")
@@ -750,12 +751,14 @@ class FECalc():
         data = data.iloc[init_idx:] # discard the first 100 ns of data
         return data
     
-    def _block_anal_2d(self, x, y, weights, block_size=None, folds=None, nbins=100):
+    def _block_anal_3d(self, x, y, z, weights, block_size=None, folds=None, nbins=100):
         # calculate histogram for all data to get bins
-        _, binsx, binsy = np.histogram2d(x, y, bins=nbins, weights=weights)
+        _, binsout = np.histogramdd([x, y, z], bins=nbins, weights=weights)
         # calculate bin centers
+        binsx, binsy, binsz = binsout
         xs = np.round((binsx[1:] + binsx[:-1])/2, 2)
         ys = np.round((binsy[1:] + binsy[:-1])/2, 2)
+        zs = np.round((binsz[1:] + binsz[:-1])/2, 2)
         # find block sizes
         if block_size is None:
             if folds is None:
@@ -770,26 +773,32 @@ class FECalc():
         data = pd.DataFrame()
         xs_unrolled = []
         ys_unrolled = []
+        zs_unrolled = []
         for i in xs:
             for j in ys:
-                xs_unrolled.append(i)
-                ys_unrolled.append(j)
+                for k in zs:
+                    xs_unrolled.append(i)
+                    ys_unrolled.append(j)
+                    zs_unrolled.append(k)
         
         data['x'] = xs_unrolled
         data['y'] = ys_unrolled
+        data['z'] = zs_unrolled
 
         # calculate free energy for each fold
         for fold in range(folds):
             x_fold = x[block_size*fold:(fold+1)*block_size]
             y_fold = y[block_size*fold:(fold+1)*block_size]
+            z_fold = z[block_size*fold:(fold+1)*block_size]
             weights_fold = weights[block_size*fold:(fold+1)*block_size]
-            counts, _, _ = np.histogram2d(x_fold, y_fold, bins=[binsx, binsy], weights=weights_fold)
+            counts, _ = np.histogramdd([x_fold, y_fold, z_fold], bins=[binsx, binsy, binsz], weights=weights_fold)
             counts[counts==0] = np.nan # discard empty bins
             free_energy = -self.KbT*np.log(counts)/1000 #kJ/mol
             free_energy_unrolled = []
             for i in range(len(xs)):
                 for j in range(len(ys)):
-                    free_energy_unrolled.append(free_energy[i, j])
+                    for k in range(len(zs)):
+                        free_energy_unrolled.append(free_energy[i, j, k])
             data[f"f_{fold}"] = free_energy_unrolled
             # Entropy correction along x axis
             data[f"f_{fold}"] += 2*self.KbT*np.log(data.x)/1000
@@ -807,19 +816,38 @@ class FECalc():
     
     def _calc_region_int(self, data):
         """
-        data = DataFrame with columns x(dcom), y(angle), F(free energy)
+        data = DataFrame with columns x(dcom), y(angle), z(cos), F(free energy)
         """
         data["exp"] = np.exp(-data.F*1000/self.KbT)
-        Y_integrand = {"X": [], "exp":[]}
-        # integrate over Y
+        # integrate over Z
+        Z_integrand = {"x": [], "y": [], "exp":[]}
         for x in data.x.unique():
-            FE_this_x = data[data.x == x]
-            Y_integrand["X"].append(x)
-            Y_integrand["exp"].append(simpson(y=FE_this_x.exp.to_numpy(), x=FE_this_x.y.to_numpy()))
+            for y in data.y.unique():
+                FE_this_xy = data[(data.x == x) & (data.y == y)].copy()
+                FE_this_xy.sort_values(by='z', inplace=True)
+                Z_integrand["x"].append(x)
+                Z_integrand["y"].append(y)
+                if FE_this_xy.empty: # if it doesn't exist, it's empty
+                    Z_integrand["exp"].append(0.0)
+                else:
+                    Z_integrand["exp"].append(simpson(y=FE_this_xy.exp.to_numpy(), x=FE_this_xy.z.to_numpy()))
         
-        Y_integrand_pd = pd.DataFrame(Y_integrand)
+        Z_integrand_pd = pd.DataFrame(Z_integrand)
+        # integrate over Y
+        Y_integrand = {"x": [], "exp":[]}
+        for x in Z_integrand_pd.x.unique():
+            FE_this_x = Z_integrand_pd[Z_integrand_pd.x == x].copy()
+            FE_this_x.sort_values(by='y', inplace=True)
+            Y_integrand["x"].append(x)
+            if FE_this_x.empty:
+                Y_integrand["exp"].append(0.0)
+            else:
+                Y_integrand["exp"].append(simpson(y=FE_this_x.exp.to_numpy(), x=FE_this_x.y.to_numpy()))
+        
         # integrate over X
-        integrand = simpson(y=Y_integrand_pd.exp.to_numpy(), x=Y_integrand_pd.X.to_numpy())
+        Y_integrand_pd = pd.DataFrame(Y_integrand)
+        Y_integrand_pd.sort_values(by='x', inplace=True)
+        integrand = simpson(y=Y_integrand_pd.exp.to_numpy(), x=Y_integrand_pd.x.to_numpy())
         
         return -self.KbT*np.log(integrand)/1000
 
@@ -831,17 +859,18 @@ class FECalc():
     def _calc_FE(self) -> None:
         colvars = self._load_plumed() # read colvars
         # block analysis
-        block_anal_data = self._block_anal_2d(colvars.dcom, colvars.ang,
-                                        colvars.weights, nbins=50, block_size=5000*100)
+        block_anal_data = self._block_anal_3d(colvars.dcom, colvars.ang, 
+                                         colvars.v3cos, colvars.weights, 
+                                         nbins=50, block_size=5000*100)
         f_list = []
         f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
         for i in f_cols:
             # bound = 0<=dcom<=1.5 nm
-            bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', i, 'ste']]
+            bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', 'z', i, 'ste']]
             bound_data.rename(columns={i: 'F'}, inplace=True)
             bound_data.dropna(inplace=True)
             # unbound = 2.0<dcom<2.4~inf nm 
-            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.4)][['x', 'y', i, 'ste']]
+            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', 'z', i, 'ste']]
             unbound_data.rename(columns={i: 'F'}, inplace=True)
             unbound_data.dropna(inplace=True)
             f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
@@ -926,8 +955,10 @@ class FECalc():
         #postprocess
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Postprocessing: ")
+        print(f"{now}: Postprocessing: ", flush=True)
         self._postprocess()
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: All steps completed.")
         print("-"*30 + "Finished" + "-"*30)
         
