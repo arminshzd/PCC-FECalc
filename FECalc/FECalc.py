@@ -48,6 +48,9 @@ class FECalc():
         Raises:
             ValueError: Raises Value error if `base_dir` is not a directory.
         """
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target}")
         self.settings_dir = Path(settings_json) # path settings.JSON
         with open(self.settings_dir) as f:
             self.settings = json.load(f)
@@ -906,7 +909,6 @@ class FECalc():
         # create PCC
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target}")
         print(f"{now}: Running pymol: ", end="", flush=True)
         if not self._check_done(self.PCC_dir):
             self._create_pcc()
