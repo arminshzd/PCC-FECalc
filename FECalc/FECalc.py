@@ -48,6 +48,8 @@ class FECalc():
         Raises:
             ValueError: Raises Value error if `base_dir` is not a directory.
         """
+        self.PCC_code = pcc
+        self.target = target
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target}")
@@ -56,7 +58,6 @@ class FECalc():
             self.settings = json.load(f)
         self.script_dir = Path(__file__).parent/Path("scripts")#Path(self.settings['scripts_dir'])
         self.mold_dir = Path(__file__).parent/Path("mold")
-        self.PCC_code = pcc
         base_dir = Path(base_dir)
         if base_dir.exists():
             if not base_dir.is_dir():
@@ -82,7 +83,6 @@ class FECalc():
             self.target_dir = Path(self.settings['DEC_dir'])
         else:
             raise ValueError(f"Target {target} is not defined. Select 'FEN' for Fentanyl or 'DEC' for Benzyl-Fentanyl.")
-        self.target = target
         
         self.AAdict31 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
                          'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
