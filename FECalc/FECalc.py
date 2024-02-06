@@ -743,6 +743,8 @@ class FECalc():
                 for i, field in enumerate(fields):
                     data[field].append(float(line_list[i]))
                 line = f.readline()
+        if len(data["time"]) < 4000000:
+            raise RuntimeError("The simulation might not have completed correctly. Check the md folder.")
         data = pd.DataFrame(data)
         data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
         #init_time = self._find_converged() #ns
