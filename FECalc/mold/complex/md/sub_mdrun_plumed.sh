@@ -37,8 +37,8 @@ source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2
 
 if [ -f ./md.cpt ]; then
     echo "Restarting previous run..."
-    gmx mdrun -ntomp "$NP" -s md.tpr -cpi md.cpt -deffnm md -plumed plumed_restart.dat -maxh 36
+    gmx mdrun -ntomp "$NP" -s md.tpr -cpi md.cpt -deffnm md -plumed plumed_restart.dat
 else
     gmx grompp -f md.mdp -c ../npt/npt.gro -r ../npt/npt.gro -t ../npt/npt.cpt -p topol.top -o md.tpr
-    gmx mdrun -ntomp "$NP" -deffnm md -plumed plumed.dat -maxh 36
+    gmx mdrun -ntomp "$NP" -deffnm md -plumed plumed.dat
 fi
