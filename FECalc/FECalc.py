@@ -119,7 +119,7 @@ class FECalc():
             if line_list[0] == "ATOM" or line_list[0] == "HETATM":
                 molecule_types.append(line_list[3])
                 atom_types.append(line_list[2])
-                atom_coordinates.append(np.array([float(line_list[6]), float(line_list[7]), float(line_list[8])]))
+                atom_coordinates.append(np.array([float(line_list[5]), float(line_list[6]), float(line_list[7])]))
         return np.array(molecule_types), np.array(atom_types), np.array(atom_coordinates)
 
     def _write_coords_to_pdb(self, f_in, f_out, coords):
@@ -230,7 +230,7 @@ class FECalc():
             None
         """
         with cd(self.PCC_dir): # cd into the PCC directory
-            with open(f"{self.PCC_code}.pdb") as f:
+            with open(f"{self.PCC_code}_opt.pdb") as f:
                 pdb_cnt = f.readlines()
             line_identifier = ['HETATM', 'ATOM']
             acpype_pdb = []
@@ -258,11 +258,20 @@ class FECalc():
             None
         """
         subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
-        # create acpype pdb with 1 residue
-        self._prep_pdb()
+        subprocess.run(f"cp {self.mold_dir}/PCC/sub_preopt.sh {self.PCC_dir}", shell=True) # copy preopt submission script
 
         wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting
-        with cd(self.PCC_dir): # cd into the PCC directory and run acpype.
+        
+        with cd(self.PCC_dir): # cd into the PCC directory
+            # pre-optimize to deal with possible clashes created while changing residues to D-AAs
+            print("Pre-optimizing: ", flush=True)
+            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_preopt.sh {self.PCC_code}.pdb {self.PCC_code}_babel.pdb", shell=True, check=True)
+            _, _, coords_new = self._read_pdb(f"{self.PCC_code}_babel.pdb")
+            self._write_coords_to_pdb(f"{self.PCC_code}.pdb", f"{self.PCC_code}_opt.pdb", coords_new[:self.PCC_n_atoms, ...])
+            # create acpype pdb with 1 residue
+            self._prep_pdb()
+            # run acpype
+            print("Running acpype: ", flush=True)
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_acpype.sh {self.PCC_code}_acpype {self.PCC_charge}", shell=True, check=True)
         
         self._set_done(self.PCC_dir/"PCC.acpype")
@@ -918,10 +927,10 @@ class FECalc():
         # get params
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Running acpype: ", end="", flush=True)
+        print(f"{now}: Getting gaff parameters: ", flush=True)
         if not self._check_done(self.PCC_dir/"PCC.acpype"):
             self._get_params()
-        print("\tDone.", flush=True)
+        print("Done.", flush=True)
         # minimize PCC
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
