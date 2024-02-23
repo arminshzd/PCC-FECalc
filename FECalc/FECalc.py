@@ -901,7 +901,7 @@ class FECalc():
         
         if discarded_blocks != 0:
             print(f"WARNING: {discarded_blocks} block(s) were discarded from the calculations possibly because the system was"\
-                   "stuck in a bound state for longer than 100 ns consecutively. Check the colvar trajectories.")
+                   " stuck in a bound state for longer than 100 ns consecutively. Check the colvar trajectories.")
         f_list = np.array(f_list)
         return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
