@@ -592,6 +592,9 @@ class FECalc():
                 now = datetime.now()
                 now = now.strftime("%m/%d/%Y, %H:%M:%S")
                 print(f"{now}: Resuming previous run...")
+                subprocess.run("mv ./HILLS_ang ./HILLS_ang.bck.unk", shell=True, check=True)
+                subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=True)
+                subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=True)
             else:
                 # copy files into complex/pbmetad
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
@@ -618,6 +621,8 @@ class FECalc():
             cnt = 1
             try:
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
+                if not Path.exists(self.complex_dir/"md"/"md.gro"): # making sure except block is executed if the run is not complete, regardless of system exit code
+                    raise RuntimeError("Run not completed.")
             except:
                 fail_flag = True
                 while fail_flag:
@@ -878,16 +883,25 @@ class FECalc():
                                          nbins=50, block_size=5000*100)
         f_list = []
         f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
+        discarded_blocks = 0
         for i in f_cols:
-            # bound = 0<=dcom<=1.5 nm
-            bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', 'z', i, 'ste']]
-            bound_data.rename(columns={i: 'F'}, inplace=True)
-            bound_data.dropna(inplace=True)
-            # unbound = 2.0<dcom<2.4~inf nm 
-            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', 'z', i, 'ste']]
-            unbound_data.rename(columns={i: 'F'}, inplace=True)
-            unbound_data.dropna(inplace=True)
-            f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
+            try:
+                # bound = 0<=dcom<=1.5 nm
+                bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', 'z', i, 'ste']]
+                bound_data.rename(columns={i: 'F'}, inplace=True)
+                bound_data.dropna(inplace=True)
+                # unbound = 2.0<dcom<2.4~inf nm 
+                unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', 'z', i, 'ste']]
+                unbound_data.rename(columns={i: 'F'}, inplace=True)
+                unbound_data.dropna(inplace=True)
+                f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
+            except:
+                discarded_blocks += 1
+                continue
+        
+        if discarded_blocks != 0:
+            print(f"WARNING: {discarded_blocks} block(s) were discarded from the calculations possibly because the system was"\
+                   "stuck in a bound state for longer than 100 ns consecutively. Check the colvar trajectories.")
         f_list = np.array(f_list)
         return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
