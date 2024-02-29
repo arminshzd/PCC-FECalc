@@ -588,10 +588,10 @@ class FECalc():
         Path.mkdir(self.complex_dir/"md", exist_ok=True)
         with cd(self.complex_dir/"md"): # cd into complex/pbmetad
             wait_str = " --wait " if wait else "" # whether to wait for pbmetad to finish before exiting
-            if Path.exists(self.complex_dir/"md"/"md.cpt"):
+            if Path.exists(self.complex_dir/"md"/"md.cpt"): # if there's a checkpoint, continue the run
                 now = datetime.now()
                 now = now.strftime("%m/%d/%Y, %H:%M:%S")
-                print(f"{now}: Resuming previous run...")
+                print(f"{now}: Resuming previous run...", flush=True)
                 subprocess.run("mv ./HILLS_ang ./HILLS_ang.bck.unk", shell=True, check=True)
                 subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=True)
                 subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=True)
