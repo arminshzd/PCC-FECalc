@@ -11,7 +11,9 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
     has_lengthscale = True
 
     def __init__(self, translator, L: int = 5, **kwargs) -> None:
-        super().__init__(ard_num_dims=2, **kwargs)
+        super().__init__(ard_num_dims=2, **kwargs) # gpytorch doesn't allow multiple length scales for a single input
+        # (or idk how to set it up). So here the code is 'tricked' into thinking the input is 2D instead of the actual 1D.
+        # this means that gpytorch will throw an exception if the debug mode is on.
         self.translator = translator
         self.str2ij = {key: i for i, key in enumerate(self.translator.psi_dict.keys())}
         self.ij2str = {i: key for i, key in enumerate(self.translator.psi_dict.keys())}
@@ -42,12 +44,16 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
                 E_ij[j, i] = E_ij[i, j]
         return E_ij
 
-    def get_tij(self):
+    def get_tij_deprecated(self):
         t_ij = torch.zeros_like(self.E_ij)
         for i in range(t_ij.shape[0]):
             for j in range(i, t_ij.shape[1]):
                 t_ij[i, j] = torch.exp(-(self.E_ij[i, j]).div(2).div(self.lengthscale[0, 1])) #sigma_c
                 t_ij[j, i] = t_ij[i, j]
+        return t_ij
+    
+    def get_tij(self):
+        t_ij = torch.exp(-(self.E_ij).div(2).div(self.lengthscale[0, 1]))
         return t_ij
     
     def get_dist(self, psi_l_1, psi_l_2):
@@ -146,9 +152,9 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
         Returns:
             torch.tensor(float): GS
         """
-        GS = torch.tensor(0.0)
+        GS = torch.tensor(0.0).to(self.device)
         for i in range(len(seq1)):
-            GS_i = torch.tensor(0.0)
+            GS_i = torch.tensor(0.0).to(self.device)
             for j in range(len(seq2)):
                 l = min(self.L, len(seq1)-i, len(seq2)-j)
                 subseq1 = seq1[i:i+l] # create subsequences
@@ -242,11 +248,13 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
     def forward(self, X, Y=None, diag=False, **params):
         self.t_ij = self.get_tij() # these are functions of the lengthscale
         self.Bij_dict = {} # need to be calculated everytime the kernel is called
-        X = X[:, 0]
+        X = X.squeeze()
+        if X.dim() == 0:
+            X = X[None]
         X_decoded = self.translator.decode(X)
-        if Y is not None:
-            Y = Y[:, 0]
+        if Y is not None: # different X and Y
+            Y = Y.squeeze()
             Y_decoded = self.translator.decode(Y)
-        K = self.get_kernel(X_decoded,Y_decoded, diag=diag)
+            K = self.get_kernel(X_decoded, Y_decoded, diag=diag)
         self.t_ij.detach()
         return K
