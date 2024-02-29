@@ -1,10 +1,9 @@
-from pathlib import Path
-import pickle
-
-import numpy as np
-import numpy.typing as npt
+from multiprocessing import Pool
+from itertools import repeat
+from functools import partial
 import torch
 import gpytorch
+
 
 class GenericStringKernel(gpytorch.kernels.Kernel):
 
@@ -53,12 +52,12 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
         return t_ij
     
     def get_tij(self):
-        t_ij = torch.exp(-(self.E_ij).div(2).div(self.lengthscale[0, 1]))
+        t_ij = torch.exp(-self.E_ij.div(2).div(self.lengthscale[0, 1]))
         return t_ij
     
     def get_dist(self, psi_l_1, psi_l_2):
         """
-        Calculate eucledian dist of two epitopes of length l
+        Calculate Euclidean dist of two epitopes of length l
 
         Args:
             psi_l_1 (torch.tensor): matrix of size d-by-l for properties of epitope 1
@@ -160,7 +159,7 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
                 subseq1 = seq1[i:i+l] # create subsequences
                 subseq2 = seq2[j:j+l]
                 B_ij_key1 = subseq1 + "_" + subseq2 # create keys for B_ij_dict
-                B_ij = self.Bij_dict.get(B_ij_key1, None) # see if this B_ij has been cacluated before
+                B_ij = self.Bij_dict.get(B_ij_key1, None) # see if this B_ij has been calculated before
                 if B_ij is None: # if not
                     B_ij = self.get_Bij(subseq1, subseq2) # calculate it
                     B_ij_key2 = subseq2 + "_" + subseq1 
@@ -230,6 +229,38 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
                         gram_matrix[i, j] = self.get_GS(X[i], Y[j])
         return gram_matrix
 
+    def GS_helper(self, X, Y):
+        """
+        Helper function to iterator over all X for a single Y.
+        """
+        with Pool(2) as p:
+            gram_matrix_x = p.starmap(self.get_GS, zip(X, repeat(Y)))
+        return torch.Tensor(gram_matrix_x).view(-1, 1)
+
+    def get_gram_matrix_parallel(self, X, Y, diag=False):
+        """
+                Calcuate the gram matrix for Generic String Kernel
+
+                Args:
+                    X (list): N_X list of sequences
+                    Y (list): N_Y list of sequences
+                    L (torch.Tensor(int)): Maximum length parameter
+                    sigma_p (torch.Tensor(float)): sigma_p parameter
+                    sigma_c (torch.Tensor(float)): sigma_c parameter
+
+                Returns:
+                    torch.Tensor: N_XxN_Y GS kernel gram matrix
+                """
+        if diag:
+            with Pool(8) as p:
+                gram_matrix = p.starmap(self.get_GS, zip(X, Y))
+            return torch.Tensor(gram_matrix)
+        else:
+            with Pool(4) as p:
+                gram_matrix = p.map(partial(self.GS_helper, X=X), Y)
+        return torch.stack(gram_matrix, dim=1)
+
+
     def get_kernel(self, X, Y=None, diag=False):
         if Y is not None:
             kernel = self.get_gram_matrix(X, Y, diag=diag)
@@ -246,15 +277,34 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
         return kernel
     
     def forward(self, X, Y=None, diag=False, **params):
-        self.t_ij = self.get_tij() # these are functions of the lengthscale
-        self.Bij_dict = {} # need to be calculated everytime the kernel is called
-        X = X.squeeze()
-        if X.dim() == 0:
-            X = X[None]
-        X_decoded = self.translator.decode(X)
+        self.t_ij = self.get_tij()  # these are functions of the lengthscale
+        self.Bij_dict = {}  # need to be calculated everytime the kernel is called
+        if X.dim() <= 1:
+            X = X.view(1, -1)
+        elif X.dim() == 2:
+            X = X.view(1, -1)
+        elif X.dim() == 3:
+            X = X.squeeze(dim=-1)
         if Y is not None: # different X and Y
-            Y = Y.squeeze()
-            Y_decoded = self.translator.decode(Y)
-            K = self.get_kernel(X_decoded, Y_decoded, diag=diag)
+            if Y.dim() <= 1:
+                Y = Y.view(1, -1)
+            elif Y.dim() == 2:
+                Y = Y.view(1, -1)
+            elif Y.dim() == 3:
+                Y = Y.squeeze(dim=-1)
+            if Y.size(0) > 1: # batched
+                K = []
+                for row in range(Y.size(0)):
+                    Y_decoded = self.translator.decode(Y[row, ...])
+                    X_decoded = self.translator.decode(X[row, ...])
+                    K.append(self.get_kernel(X_decoded, Y_decoded, diag=diag))
+                return torch.stack(K, dim=0)
+            else:
+                X_decoded = self.translator.decode(X[0, ...])
+                Y_decoded = self.translator.decode(Y[0, ...])
+                K = self.get_kernel(X_decoded, Y_decoded, diag=diag)
+        else:
+            X_decoded = self.translator.decode(X[0, ...])
+            K = self.get_kernel(X_decoded, X_decoded, diag=diag)
         self.t_ij.detach()
         return K

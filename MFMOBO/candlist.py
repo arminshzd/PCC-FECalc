@@ -58,7 +58,7 @@ def load_data(data_dir):
     return data
 
 # %%
-dataset = load_data("/project2/andrewferguson/armin/FE_DATA/results")
+dataset = load_data("/Users/arminsh/Documents/FEN-HTVS/results")
 dataset["ddG_sen"] = -1*dataset.F_FEN
 dataset.ddG_sen = (dataset.ddG_sen - dataset.ddG_sen.mean())/dataset.ddG_sen.std()
 dataset["sen_var"] = dataset.err_FEN
@@ -67,7 +67,7 @@ dataset["ddG_spe"] = dataset.F_DEC-dataset.F_FEN
 dataset.ddG_spe = (dataset.ddG_spe - dataset.ddG_spe.mean())/dataset.ddG_spe.std()
 dataset["spe_var"] = np.sqrt(dataset.err_FEN**2 + dataset.err_DEC**2)
 dataset.spe_var = dataset.spe_var/dataset.ddG_spe.std()
-with open("/project/andrewferguson/armin/HTVS_Fentanyl/MFMOBO/translator_fs.pkl", "rb") as f:
+with open("/Users/arminsh/Documents/FEN-HTVS/MFMOBO/translator_fs.pkl", "rb") as f:
     translator = pickle.load(f)
 
 # %%
@@ -117,7 +117,7 @@ def opt_qehvi_get_obs(model, train_x, choices, sampler):
         acq_function=acq_func,
         q=3,
         choices=choices,
-        max_batch_size=1,
+        max_batch_size=10000,
         unique=True
     )
     # observe new values
