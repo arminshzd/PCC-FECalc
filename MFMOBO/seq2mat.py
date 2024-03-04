@@ -67,8 +67,9 @@ class Seq2Mat():
         """
         if self.encoder is None:
              raise RuntimeError("Translator has not been fit yet.")
-    
-        return [self.decoder[i.item()] for i in X]
+        with torch.no_grad():
+            items = [i.item() for i in X]
+        return [self.decoder[i] for i in items]
     
     def get_psi(self, seqs:list) -> torch.Tensor:
         """
