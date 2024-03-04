@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 import gpytorch
-from gskernel_test import GenericStringKernel
+from gskernel import GenericStringKernel
 from botorch.models.gpytorch import GPyTorchModel
 from tqdm import tqdm
 
