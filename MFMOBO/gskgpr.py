@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 class GaussianStringKernelGP(gpytorch.models.ExactGP, GPyTorchModel):
     def __init__(self, train_x, train_y, likelihood, translator, **kwargs):
-        super().__init__(train_x, train_y, likelihood)
+        super(GaussianStringKernelGP, self).__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = GenericStringKernel(translator, **kwargs)
 

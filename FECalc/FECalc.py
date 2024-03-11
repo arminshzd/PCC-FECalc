@@ -922,8 +922,7 @@ class FECalc():
             self._write_report()
         return None
 
-    
-    def run(self) -> float:
+    def run(self) -> tuple:
         """Wrapper for FE caclculations. Create PCC, call acpype, 
         minimize, create complex, and run PBMetaD.
 
@@ -989,4 +988,4 @@ class FECalc():
         print(f"{now}: All steps completed.")
         print("-"*30 + "Finished" + "-"*30)
         
-        return self.free_e, self.free_e_err
+        return self.free_e, self.free_e_err, self.K, self.K_err
