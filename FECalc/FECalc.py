@@ -595,6 +595,7 @@ class FECalc():
                 subprocess.run("mv ./HILLS_ang ./HILLS_ang.bck.unk", shell=True, check=True)
                 subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=True)
                 subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=True)
+                subprocess.run("cp ./md.cpt ./md.cpt.bck.unk", shell=True, check=True)
             else:
                 # copy files into complex/pbmetad
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
@@ -631,6 +632,7 @@ class FECalc():
                         subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=True)
                         subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=True)
                         subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=True)
+                        subprocess.run(f"cp ./md.cpt ./md.cpt.bck.{cnt}", shell=True, check=True)
                         now = datetime.now()
                         now = now.strftime("%m/%d/%Y, %H:%M:%S")
                         print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)

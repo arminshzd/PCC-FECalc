@@ -12,3 +12,4 @@ testbench_FECalc.py
 /submissions/
 /*.out
 /3d_int_test.*
+*.py[cod]
