@@ -1,4 +1,4 @@
-from typing import Any, AnyStr
+from typing import AnyStr, Union
 import pickle
 import torch
 from tensordict.tensordict import TensorDict
@@ -26,7 +26,7 @@ class Seq2Ascii:
         self.int2str = {val: seq for seq, val in self.str2int.items()}
         self.int2tensor = {i: self.encode(seq) for i, seq in enumerate(seqs)}
     
-    def encode_to_int(self, seqs: list) -> int:
+    def encode_to_int(self, seqs: list) -> torch.Tensor:
         return torch.tensor([self.str2int[i] for i in seqs])
 
     def encode(self, seqs: str) -> torch.Tensor:
@@ -81,7 +81,7 @@ class Seq2Ascii:
             data.append(torch.stack(batch, dim=0))
         return torch.stack(data, dim=0)
     
-    def decode(self, X: torch.Tensor) -> str:
+    def decode(self, X: torch.Tensor) -> Union[str, list]:
         if len(X) > 1:
             return [self._decode(i) for i in X.squeeze()]
         else:
