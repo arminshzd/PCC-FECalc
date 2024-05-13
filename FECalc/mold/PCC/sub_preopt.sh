@@ -22,4 +22,4 @@
 module load python/anaconda-2021.05
 source activate /project/andrewferguson/armin/envs/ase
 
-obabel $1 -O $2 --minimize --sd --ff GAFF --steps 500
+obabel $1 -O $2 --minimize --cg --ff MMFF94 --steps 500

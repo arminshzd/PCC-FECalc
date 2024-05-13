@@ -52,7 +52,7 @@ class FECalc():
         self.target = target
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target}")
+        print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target} (PID: {os.getpid()})")
         self.settings_dir = Path(settings_json) # path settings.JSON
         with open(self.settings_dir) as f:
             self.settings = json.load(f)
@@ -274,6 +274,13 @@ class FECalc():
             print("Running acpype: ", flush=True)
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_acpype.sh {self.PCC_code}_acpype {self.PCC_charge}", shell=True, check=True)
         
+            # check acpype.log for warnings
+            with open("PCC.acpype/acpype.log") as f:
+                acpype_log = f.read()
+                if "warning:" in acpype_log.lower():
+                    raise RuntimeError("""Acpype generated files are likely to have incorrect bonds. 
+                                       Check the generated PCC structure before continueing.""")
+
         self._set_done(self.PCC_dir/"PCC.acpype")
         return None
     
@@ -592,9 +599,9 @@ class FECalc():
                 now = datetime.now()
                 now = now.strftime("%m/%d/%Y, %H:%M:%S")
                 print(f"{now}: Resuming previous run...", flush=True)
-                subprocess.run("mv ./HILLS_ang ./HILLS_ang.bck.unk", shell=True, check=True)
-                subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=True)
-                subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=True)
+                subprocess.run("mv ./HILLS_ang ./HILLS_ang.bck.unk", shell=True, check=False)
+                subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=False)
+                subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=False)
                 subprocess.run("cp ./md.cpt ./md.cpt.bck.unk", shell=True, check=True)
             else:
                 # copy files into complex/pbmetad
@@ -640,8 +647,8 @@ class FECalc():
                         print()
                         fail_flag = False
                     except:
-                        if cnt >= 10:
-                            raise RuntimeError("PBMetaD run failed more than 10 times. Stopping.")
+                        if cnt >= 5:
+                            raise RuntimeError("PBMetaD run failed more than 5 times. Stopping.")
     
         self._set_done(self.complex_dir/'md')
         return None
