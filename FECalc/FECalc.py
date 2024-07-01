@@ -636,10 +636,10 @@ class FECalc():
                 while fail_flag:
                     try:
                         cnt += 1
-                        subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=True)
-                        subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=True)
-                        subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=True)
-                        subprocess.run(f"cp ./md.cpt ./md.cpt.bck.{cnt}", shell=True, check=True)
+                        subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=False)
+                        subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=False)
+                        subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=False)
+                        subprocess.run(f"cp ./md.cpt ./md.cpt.bck.{cnt}", shell=True, check=False)
                         now = datetime.now()
                         now = now.strftime("%m/%d/%Y, %H:%M:%S")
                         print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
@@ -945,6 +945,8 @@ class FECalc():
         print(f"{now}: Running pymol: ", end="", flush=True)
         if not self._check_done(self.PCC_dir):
             self._create_pcc()
+            print("Check the initial structure and rerun the code.")
+            return self.free_e, self.free_e_err, self.K, self.K_err
         print("\tDone.", flush=True)
         # get params
         now = datetime.now()

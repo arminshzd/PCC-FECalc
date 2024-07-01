@@ -61,21 +61,21 @@ def load_data(data_dir):
     return data
 
 # %%
-dataset = load_data("/Users/arminsh/Documents/FEN-HTVS/results")
+dataset = load_data("/project/andrewferguson/armin/HTVS_Fentanyl/MFMOBO/results/")
 dataset["ddG_sen"] = -1*dataset.F_FEN
-dataset.ddG_sen = (dataset.ddG_sen - dataset.ddG_sen.mean())/dataset.ddG_sen.std()
-dataset["sen_var"] = dataset.err_FEN
-dataset.sen_var = dataset.sen_var/dataset.ddG_sen.std()
 dataset["ddG_spe"] = dataset.F_DEC-dataset.F_FEN
-dataset.ddG_spe = (dataset.ddG_spe - dataset.ddG_spe.mean())/dataset.ddG_spe.std()
+dataset["sen_var"] = dataset.err_FEN
 dataset["spe_var"] = np.sqrt(dataset.err_FEN**2 + dataset.err_DEC**2)
+dataset.sen_var = dataset.sen_var/dataset.ddG_sen.std()
+dataset.ddG_sen = (dataset.ddG_sen - dataset.ddG_sen.mean())/dataset.ddG_sen.std()
 dataset.spe_var = dataset.spe_var/dataset.ddG_spe.std()
+dataset.ddG_spe = (dataset.ddG_spe - dataset.ddG_spe.mean())/dataset.ddG_spe.std()
 # %%
 device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
-translator = Seq2Ascii("/Users/arminsh/Documents/FEN-HTVS/MFMOBO/AA.blosum62.pckl")
+translator = Seq2Ascii("/project/andrewferguson/armin/HTVS_Fentanyl/MFMOBO/AA.blosum62.pckl")
 
 fspace = []
-with open("/Users/arminsh/Documents/FEN-HTVS/gen_input_space/full_space.txt") as f:
+with open("/project/andrewferguson/armin/HTVS_Fentanyl/gen_input_space/full_space.txt") as f:
     line = f.readline()
     while line:
         fspace.append(line.split()[0])
@@ -138,19 +138,39 @@ def opt_qehvi_get_obs(model, train_x, choices, sampler):
         sampler=sampler,
     )
 
-    # acq_func = qNoisyExpectedHypervolumeImprovement(
-    #     model=model,
-    #     ref_point=REF_POINT,
-    #     X_baseline=train_x,
-    #     sampler=sampler,
-    # )
+    # optimize
+    candidates, _ = optimize_acqf_discrete(
+        acq_function=acq_func,
+        q=3,
+        choices=choices,
+        max_batch_size=500,
+        unique=True
+    )
+    # observe new values
+    new_x = candidates.detach()
+    new_obj_true = None #get the true value
+    new_obj_true_err = None #get the true value error
+    new_post = model.posterior(new_x) 
+    new_obj = new_post.mean
+    new_obj_err = new_post.variance
+    return new_x, new_obj_true, new_obj_true_err, new_obj, new_obj_err
+
+def opt_qnehvi_get_obs(model, train_x, choices, sampler):
+    
+    acq_func = qNoisyExpectedHypervolumeImprovement(
+        model=model,
+        ref_point=REF_POINT,
+        X_baseline=train_x,
+	prune_baseline=True,
+        sampler=sampler,
+    )
 
     # optimize
     candidates, _ = optimize_acqf_discrete(
         acq_function=acq_func,
         q=3,
         choices=choices,
-        max_batch_size=100,
+        max_batch_size=500,
         unique=True
     )
     # observe new values
@@ -164,7 +184,7 @@ def opt_qehvi_get_obs(model, train_x, choices, sampler):
 
 
 # %%
-model, mll = initialize_model(encoded_x, train_y, err_y, translator)
+model, mll = initialize_model(encoded_x, train_y, err_y**2, translator) # Botorch uses variance (not error)
 #post = model.posterior(encoded_x)
 #obj_vals = post.mean
 #obj_errs = post.variance
