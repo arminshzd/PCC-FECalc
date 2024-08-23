@@ -20,6 +20,6 @@
 #SBATCH --cpus-per-task=4
 
 module load python/anaconda-2021.05
-source activate /project/andrewferguson/armin/envs/ase
+source activate /scratch/midway2/arminsh/envs/ase
 
 python pcc_submit.py -p $1 -t $2

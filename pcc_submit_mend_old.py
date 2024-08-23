@@ -16,15 +16,13 @@ PCC = args.pcc
 MOL = args.target
 now = datetime.now()
 now = now.strftime("%m/%d/%Y, %H:%M:%S")
-output_path = Path("/scratch/midway2/arminsh/FE_DATA/")
-#output_path = Path("/project2/andrewferguson/armin/FE_DATA/")
 print(f"Starting {PCC}_{MOL} run.")
-calculator = FECalc(PCC, MOL, str(output_path/f"{PCC}_{MOL}"), 
+calculator = FECalc(PCC, MOL, f"/project2/andrewferguson/armin/FE_DATA_MEND/{PCC}_{MOL}", 
                     "/project/andrewferguson/armin/HTVS_Fentanyl/FECalc/FECalc_settings.JSON")
 try:
     vals = calculator.run()
 finally:
-    log_dir = output_path/f"{PCC}_{MOL}"/"metadata.JSON"
+    log_dir = Path(f"/project2/andrewferguson/armin/FE_DATA_MEND/{PCC}_{MOL}/metadata.JSON")
     if log_dir.exists():
         print("INFO: Metadata file exits: OK")
     else:
