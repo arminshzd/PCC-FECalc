@@ -11,7 +11,7 @@ class GaussianStringKernelGP(gpytorch.models.ExactGP, GPyTorchModel):
         super(GaussianStringKernelGP, self).__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = GenericStringKernel(translator, **kwargs)
-        self._num_outputs=None
+        self._num_outputs = None
 
     @property
     def num_outputs(self):
