@@ -208,6 +208,16 @@ class FECalc():
         numres = len(pcc_translate) # number of residues
         mutation = "".join(pcc_translate) # concatenate the 3 letter codes
         subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
+	# pre-optimization
+        wait_str = " --wait "
+        subprocess.run(f"cp {self.mold_dir}/PCC/sub_preopt.sh {self.PCC_dir}", shell=True) # copy preopt submission script
+        with cd(self.PCC_dir): # cd into the PCC directory
+            # pre-optimize to deal with possible clashes created while changing residues to D-AAs
+            print("Pre-optimizing: ", flush=True)
+            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_preopt.sh {self.PCC_code}.pdb {self.PCC_code}_babel.pdb", shell=True, check=True)
+            _, _, coords_new = self._read_pdb(f"{self.PCC_code}_babel.pdb")
+            self._write_coords_to_pdb(f"{self.PCC_code}.pdb", f"{self.PCC_code}_opt.pdb", coords_new[:self.PCC_n_atoms, ...])
+
         self._set_done(self.PCC_dir) # mark stage as done
         return None
     
@@ -257,18 +267,12 @@ class FECalc():
         Returns:
             None
         """
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_preopt.sh {self.PCC_dir}", shell=True) # copy preopt submission script
-
-        wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting
         
+        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
+
+        wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting        
         with cd(self.PCC_dir): # cd into the PCC directory
-            # pre-optimize to deal with possible clashes created while changing residues to D-AAs
-            print("Pre-optimizing: ", flush=True)
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_preopt.sh {self.PCC_code}.pdb {self.PCC_code}_babel.pdb", shell=True, check=True)
-            _, _, coords_new = self._read_pdb(f"{self.PCC_code}_babel.pdb")
-            self._write_coords_to_pdb(f"{self.PCC_code}.pdb", f"{self.PCC_code}_opt.pdb", coords_new[:self.PCC_n_atoms, ...])
-            # create acpype pdb with 1 residue
+                        # create acpype pdb with 1 residue
             self._prep_pdb()
             # run acpype
             print("Running acpype: ", flush=True)
@@ -639,6 +643,9 @@ class FECalc():
                         subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=False)
                         subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=False)
                         subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=False)
+                        subprocess.run(f"cp ./GRID_ang ./GRID_ang.bck.{cnt}", shell=True, check=False)
+                        subprocess.run(f"cp ./GRID_cos ./GRID_cos.bck.{cnt}", shell=True, check=False)
+                        subprocess.run(f"cp ./GRID_COM ./GRID_COM.bck.{cnt}", shell=True, check=False)
                         subprocess.run(f"cp ./md.cpt ./md.cpt.bck.{cnt}", shell=True, check=False)
                         now = datetime.now()
                         now = now.strftime("%m/%d/%Y, %H:%M:%S")

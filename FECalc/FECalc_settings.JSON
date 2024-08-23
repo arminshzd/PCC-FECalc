@@ -5,6 +5,6 @@
     "pymol_dir": "module load pymol && pymol",
     "packmol_dir_MW3": "/project/andrewferguson/armin/packmol/packmol-20.14.2/packmol",
     "packmol_dir": "/project/andrewferguson/armin/packmol/packmol_mw2/packmol-20.14.2/packmol",
-    "acpype_dir": "/project/andrewferguson/armin/envs/acpype",
+    "acpype_dir": "/scratch/midway2/arminsh/envs/acpype",
     "T": 300
 }
