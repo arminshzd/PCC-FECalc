@@ -20,6 +20,6 @@
 #SBATCH --cpus-per-task=20
 
 module load python/anaconda-2021.05
-source activate /project/andrewferguson/armin/envs/acpype
+source activate /scratch/midway2/arminsh/envs/acpype
 
 acpype -i $1.pdb -b PCC -c bcc -n $2 -a gaff2

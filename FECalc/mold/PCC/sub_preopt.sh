@@ -20,6 +20,6 @@
 #SBATCH --cpus-per-task=20
 
 module load python/anaconda-2021.05
-source activate /project/andrewferguson/armin/envs/ase
+source activate /scratch/midway2/arminsh/envs/ase
 
 obabel $1 -O $2 --minimize --cg --ff MMFF94 --steps 500
