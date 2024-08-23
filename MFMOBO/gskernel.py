@@ -7,7 +7,7 @@ from gpytorch.constraints import Positive
 
 
 class GenericStringKernel(gpytorch.kernels.Kernel):
-    def __init__(self, translator, L: int = 5, **kwargs) -> None:
+    def __init__(self, translator, **kwargs) -> None:
         super().__init__(**kwargs)
         # register the raw parameters
         self.register_parameter(
@@ -24,8 +24,8 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
         # this means that gpytorch will throw an exception if the debug mode is on.
         self.translator = translator
         self.encoded_blosum = self.get_blosum()
-        self.E_ij = self.get_Eij()
-        self.L = L
+        self.E_ij = self.get_Eij().to("cpu")#torch.device("cuda:1" if torch.cuda.is_available() else "cpu"))
+        self.L = kwargs.get('L', 5)#.to(torch.device("cuda:1" if torch.cuda.is_available() else "cpu"))
         self.t_ij = None # these are functions of the lengthscale
     
     @property
@@ -110,10 +110,10 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
         """
         t_dict = {0: 1}
         for l in range(len(seq1)):
-            a1 = seq1[l:l+1] # current AA in seq 1
-            a2 = seq2[l:l+1] # current AA in seq 1
+            a1 = seq1[l:l+1].to("cpu")#torch.device("cuda:1" if torch.cuda.is_available() else "cpu")) # current AA in seq 1
+            a2 = seq2[l:l+1].to("cpu")#torch.device("cuda:1" if torch.cuda.is_available() else "cpu")) # current AA in seq 1
             t_dict[l+1] = torch.index_select(torch.index_select(self.t_ij, 0, a1), 1, a2)
-        B_ij = torch.Tensor([0])
+        B_ij = torch.Tensor([0]).to("cpu")#torch.device("cuda:1" if torch.cuda.is_available() else "cpu"))
         for i in range(2, len(t_dict)+1):
             product = 1
             for j in range(i):
@@ -146,7 +146,7 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
                 subseq1 = seq1[i:i+l] # create subsequences
                 subseq2 = seq2[j:j+l]
                 B_ij = self.get_Bij(subseq1, subseq2) # calculate B_ij
-                dist = torch.Tensor([i-j])
+                dist = torch.Tensor([i-j]).to("cpu")#torch.device("cuda:1" if torch.cuda.is_available() else "cpu"))
                 dist = torch.exp(-torch.pow(dist, 2.0).div(2.0).div(self.sigma1))
                 GS_i.append(dist*B_ij)
             GS.append(torch.concat(GS_i, dim=0).sum(dim=0).view(1))
@@ -198,29 +198,37 @@ class GenericStringKernel(gpytorch.kernels.Kernel):
             kernel = self.get_gram_matrix_parallel(X, Y, diag=diag)
             diag_X = self.get_gram_matrix_parallel(X, X, diag=True).view(kernel.size(0), -1)
             diag_Y = self.get_gram_matrix_parallel(Y, Y, diag=True).view(kernel.size(0), -1)
-            kernel /= torch.einsum('bi,bj->bij', (torch.sqrt(diag_X), torch.sqrt(diag_Y)))
+            if diag:
+                kernel /= torch.einsum('bi,bi->bi', (torch.sqrt(diag_X), torch.sqrt(diag_Y)))
+            else:
+                kernel /= torch.einsum('bi,bj->bij', (torch.sqrt(diag_X), torch.sqrt(diag_Y)))
             #kernel /= torch.outer(torch.sqrt(diag_X), torch.sqrt(diag_Y))
         else:
             kernel = self.get_gram_matrix_parallel(X, X, diag=diag)
             if diag:
-                diag_X = kernel
+                kernel /= torch.einsum('bi,bi->bi', (torch.sqrt(diag_X), torch.sqrt(diag_X)))
             else:
-                diag_X = torch.diag(kernel)
-            kernel /= torch.einsum('bi,bj->bij', (torch.sqrt(diag_X), torch.sqrt(diag_X)))
+                kernel /= torch.einsum('bi,bj->bij', (torch.sqrt(diag_X), torch.sqrt(diag_X)))
             #kernel /= torch.outer(torch.sqrt(diag_X), torch.sqrt(diag_X))
         return kernel
     
-    def forward(self, X, Y=None, diag=False, **params):
-        self.t_ij = self.get_tij()  # these are functions of the lengthscale
+    def _process_inputs(self, X):
         if X.dim() <= 1:
-            X = X.view(1, 1, -1)
+            X = X.view(-1, 1, 1)
         elif X.dim() == 2:
-            X = X.unsqueeze(dim=0)
+            if X.shape[0] == 1:
+                X = torch.transpose(X, 0, 1).unsqueeze(dim=0)
+            else:
+                X = X.unsqueeze(dim=0)
+        return X
+
+    def forward(self, X, Y=None, diag=False, **params):
+        self.t_ij = self.get_tij().to("cpu")#torch.device("cuda:1" if torch.cuda.is_available() else "cpu"))  # these are functions of the lengthscale
+        X = self._process_inputs(X)
         if Y is not None: # different X and Y
-            if Y.dim() <= 1:
-                Y = Y.view(1, 1, -1)
-            elif Y.dim() == 2:
-                Y = Y.unsqueeze(dim=0)
+            Y = self._process_inputs(Y)
+        else:
+            Y = X
         X = self.translator.translate_to_ord(X)
         Y = self.translator.translate_to_ord(Y)
         K = self.get_kernel(X, Y, diag=diag)
