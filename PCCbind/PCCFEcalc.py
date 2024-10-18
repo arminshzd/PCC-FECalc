@@ -7,8 +7,8 @@ from datetime import datetime
 import time
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
-from Bio import BiopythonDeprecationWarning
-warnings.filterwarnings("ignore", category=BiopythonDeprecationWarning)
+#from Bio import BiopythonDeprecationWarning
+#warnings.filterwarnings("ignore", category=BiopythonDeprecationWarning)
 
 import MDAnalysis as md
 from MDAnalysis.analysis import align
