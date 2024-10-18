@@ -607,6 +607,16 @@ class FECalc():
                 subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=False)
                 subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=False)
                 subprocess.run("cp ./md.cpt ./md.cpt.bck.unk", shell=True, check=True)
+                # check that all GRID files exist. If not replace them with backups.
+                if not Path.exists(self.complex_dir/"md"/"GRID_COM"):
+                    print(f"{now}: Missing GRID_COM file. Replacing with latest backup.", flush=True)
+                    subprocess.run("cp ./bck.last.GRID_COM ./GRID_COM", shell=True, check=True)
+                if not Path.exists(self.complex_dir/"md"/"GRID_cos"):
+                    print(f"{now}: Missing GRID_cos file. Replacing with latest backup.", flush=True)
+                    subprocess.run("cp ./bck.last.GRID_cos ./GRID_cos", shell=True, check=True)
+                if not Path.exists(self.complex_dir/"md"/"GRID_ang"):
+                    print(f"{now}: Missing GRID_ang file. Replacing with latest backup.", flush=True)
+                    subprocess.run("cp ./bck.last.GRID_ang ./GRID_ang", shell=True, check=True)
             else:
                 # copy files into complex/pbmetad
                 subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
