@@ -7,8 +7,6 @@ from datetime import datetime
 import time
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
-#from Bio import BiopythonDeprecationWarning
-#warnings.filterwarnings("ignore", category=BiopythonDeprecationWarning)
 
 import MDAnalysis as md
 from MDAnalysis.analysis import align
@@ -60,23 +58,30 @@ class PCCFEcalc():
 			PCC1_calc_dir = self.settings.get("PCC_source", None)
 			if PCC1_calc_dir is None:
 				raise RuntimeError(f"Structure calculations source not found.")
-			PCC1_calc_dir = Path(PCC1_calc_dir)/f"{self.PCC1}_FEN"
+			self.PCC1_calc_dir = Path(PCC1_calc_dir)/self.PCC1
 			if not PCC1_calc_dir.exists():
 				raise RuntimeError(f"Structure calculations for {self.PCC1} not found.")
+		else:
+			self.PCC1_calc_dir = self.base_dir/self.PCC1
+
 			
 		if not (self.base_dir/self.PCC2).exists():
 			PCC2_calc_dir = self.settings.get("PCC_source", None)
 			if PCC2_calc_dir is None:
 				raise RuntimeError(f"Structure calculations source not found.")
-			PCC2_calc_dir = Path(PCC2_calc_dir)/f"{self.PCC2}_FEN"
+			self.PCC2_calc_dir = Path(PCC2_calc_dir)/self.PCC2
 			if not PCC2_calc_dir.exists():
 				raise RuntimeError(f"Structure calculations for {self.PCC2} not found.")
+		else:
+			self.PCC2_calc_dir = self.base_dir/self.PCC2
 
 	
-		self.AAdict31 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
-                         'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
-                         'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
-                         'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'} # 3 to 1 translator
+		self.AAdict31 = {
+			'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+            'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+            'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
+            'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'
+			} # 3 to 1 translator
 		self.AAdict13 = {j: i for i, j in self.AAdict31.items()} # 1 to 3 translator
 		self.charge_dict = {"D": -1, "E": -1, "R": +1, "K": +1} # AA charges at neutral pH
 		self.sys_charge = sum([self.charge_dict.get(i, 0) for i in list(self.PCC1)+list(self.PCC2)])
@@ -257,12 +262,12 @@ class PCCFEcalc():
 			## CREATE TOPOL.TOP
 			with cd(self.complex_dir): # cd into complex
 				# copy PCC files into complex directory
-				subprocess.run(f"cp {self.base_dir}/{self.PCC1}/PCC.acpype/PCC_GMX.itp ./PCC1.itp", shell=True, check=True)
-				subprocess.run(f"cp {self.base_dir}/{self.PCC1}/PCC.acpype/posre_PCC.itp ./posre_PCC1.itp", shell=True, check=True)
-				subprocess.run(f"cp {self.base_dir}/{self.PCC1}/em/PCC_em.pdb ./PCC1.pdb", shell=True, check=True)
-				subprocess.run(f"cp {self.base_dir}/{self.PCC2}/PCC.acpype/PCC_GMX.itp ./PCC2.itp", shell=True, check=True)
-				subprocess.run(f"cp {self.base_dir}/{self.PCC2}/PCC.acpype/posre_PCC.itp ./posre_PCC2.itp", shell=True, check=True)
-				subprocess.run(f"cp {self.base_dir}/{self.PCC2}/em/PCC_em.pdb ./PCC2.pdb", shell=True, check=True)
+				subprocess.run(f"cp {self.PCC1_calc_dir}/PCC.acpype/PCC_GMX.itp ./PCC1.itp", shell=True, check=True)
+				subprocess.run(f"cp {self.PCC1_calc_dir}/PCC.acpype/posre_PCC.itp ./posre_PCC1.itp", shell=True, check=True)
+				subprocess.run(f"cp {self.PCC1_calc_dir}/em/PCC_em.pdb ./PCC1.pdb", shell=True, check=True)
+				subprocess.run(f"cp {self.PCC2_calc_dir}/PCC.acpype/PCC_GMX.itp ./PCC2.itp", shell=True, check=True)
+				subprocess.run(f"cp {self.PCC2_calc_dir}/PCC.acpype/posre_PCC.itp ./posre_PCC2.itp", shell=True, check=True)
+				subprocess.run(f"cp {self.PCC2_calc_dir}/em/PCC_em.pdb ./PCC2.pdb", shell=True, check=True)
 				# create complex.pdb with MDAnalysis
 				self._align()
 				# create topol.top and complex.itp

@@ -1,5 +1,5 @@
 {
-    "PCC_source": "/project2/andrewferguson/armin/FE_DATA_MEND",
+    "PCC_source": "/scratch/midway3/arminsh/PCC_DB",
     "num_umbrellas": 20,
     "max_distance": 4.0,
     "spring_constant": 150,

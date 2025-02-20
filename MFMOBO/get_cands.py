@@ -2,7 +2,6 @@
 import json
 import os
 import re
-import pickle
 
 import numpy as np
 import pandas as pd
@@ -12,13 +11,12 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from botorch.utils.multi_objective.box_decompositions.non_dominated import FastNondominatedPartitioning
-from botorch.acquisition.multi_objective.monte_carlo import qExpectedHypervolumeImprovement
+from botorch.acquisition.multi_objective.monte_carlo import qNoisyExpectedHypervolumeImprovement
 from botorch.optim.optimize import optimize_acqf_discrete
 from botorch.utils.multi_objective.box_decompositions.dominated import DominatedPartitioning
 from botorch import fit_gpytorch_mll
 from botorch.sampling.normal import SobolQMCNormalSampler
 import gpytorch
-from tqdm import tqdm
 
 from gskgpr import GaussianStringKernelGP
 from seq2ascii import Seq2Ascii
@@ -122,45 +120,12 @@ def fit_gpytorch_model(mll, optimizer, n_iters=100):
         ))
         optimizer.step()
 # %%
-def opt_qehvi_get_obs(model, train_x, choices, sampler):
-    with torch.no_grad():
-        pred = model.posterior(train_x).mean
-    
-    partitioning = FastNondominatedPartitioning(
-        ref_point=REF_POINT,
-        Y=pred
-    )
-
-    acq_func = qExpectedHypervolumeImprovement(
-        model=model,
-        ref_point=REF_POINT,
-        partitioning=partitioning,
-        sampler=sampler,
-    )
-
-    # optimize
-    candidates, _ = optimize_acqf_discrete(
-        acq_function=acq_func,
-        q=3,
-        choices=choices,
-        max_batch_size=500,
-        unique=True
-    )
-    # observe new values
-    new_x = candidates.detach()
-    new_obj_true = None #get the true value
-    new_obj_true_err = None #get the true value error
-    new_post = model.posterior(new_x) 
-    new_obj = new_post.mean
-    new_obj_err = new_post.variance
-    return new_x, new_obj_true, new_obj_true_err, new_obj, new_obj_err
-
 def opt_qnehvi_get_obs(model, train_x, choices, sampler):
     
     acq_func = qNoisyExpectedHypervolumeImprovement(
         model=model,
         ref_point=REF_POINT,
-        X_baseline=train_x,
+        X_baseline=train_x.view(-1, 1).type(torch.float32),
 	prune_baseline=True,
         sampler=sampler,
     )
@@ -175,47 +140,29 @@ def opt_qnehvi_get_obs(model, train_x, choices, sampler):
     )
     # observe new values
     new_x = candidates.detach()
-    new_obj_true = None #get the true value
-    new_obj_true_err = None #get the true value error
-    new_post = model.posterior(new_x) 
-    new_obj = new_post.mean
-    new_obj_err = new_post.variance
-    return new_x, new_obj_true, new_obj_true_err, new_obj, new_obj_err
+    new_post = model.posterior(new_x)
+    new_obj = new_post.mean.detach()
+    new_obj_err = new_post.variance.detach()
+    return new_x, new_obj, new_obj_err
 
 
 # %%
 model, mll = initialize_model(encoded_x, train_y, err_y**2, translator) # Botorch uses variance (not error)
-#post = model.posterior(encoded_x)
-#obj_vals = post.mean
-#obj_errs = post.variance
-
-hvs = []
-
-bd = DominatedPartitioning(ref_point=REF_POINT, Y=train_y)
-volume = bd.compute_hypervolume().item()
-hvs.append(volume)
 
 choices = list(translator.int2str.keys())
 for i in dataset.PCC: # remove the ones that are already in the training set
     choices.remove(translator.str2int[i])
 choices = torch.Tensor(choices).view(-1, 1).to(device)
 # %%
-optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-for iteration in range(0, 1):
-    fit_gpytorch_mll(mll)
-    #fit_gpytorch_model(mll, optimizer, n_iters=100)
-    sampler = SobolQMCNormalSampler(sample_shape=torch.Size([128]))
-    outputs = []
-    new_x, new_obj_true, new_obj_true_err, new_obj, new_obj_err = opt_qehvi_get_obs(model, encoded_x, choices, sampler)
-    # update training data
-    #train_x = torch.cat([train_x, new_x], dim=0)
-    #obj_vals = torch.cat([obj_vals, new_obj], dim=0)
-    #obj_errs = torch.cat([obj_errs, new_obj_err], dim=0)
-    #train_y = torch.cat([train_y, new_obj_true], dim=0)
+mll.train()
+model.train()
+fit_gpytorch_mll(mll)
+mll.eval()
+mll.eval()
 
-    # recompute hvs
-    #bd = DominatedPartitioning(ref_point=REF_POINT, Y=train_y)
-    #volume = bd.compute_hypervolume().item()
-    #hvs.append(volume)
-    print(new_x)
-    print(translator.decode(new_x.squeeze()))
+sampler = SobolQMCNormalSampler(sample_shape=torch.Size([1028]))
+outputs = []
+new_x, new_obj, new_obj_err = opt_qnehvi_get_obs(model, encoded_x, choices, sampler)
+
+print(new_x)
+print(translator.decode(new_x.squeeze()))
