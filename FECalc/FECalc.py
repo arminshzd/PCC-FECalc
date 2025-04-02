@@ -291,10 +291,10 @@ class FECalc():
     def _minimize_PCC(self, wait: bool = True) -> None: 
         """
         Run minimization for PCC. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
-        the structure. The last frame is save as `PCC.gro`
+        the structure. The last frame is saved as `PCC.gro`
 
         Args:
-            wait (bool, optional): Whether to wait for em to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
 
         Returns:
             None

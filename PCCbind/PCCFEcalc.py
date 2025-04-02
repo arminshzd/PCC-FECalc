@@ -49,6 +49,9 @@ class PCCFEcalc():
 		with open(settings_json) as f:
 			self.settings = json.load(f)
 
+		if not self.base_dir.exists():
+			self.base_dir.mkdir()
+
 		self.complex_dir = self.base_dir/"complex"
 		if not self.complex_dir.exists():
 			self.complex_dir.mkdir()
@@ -59,7 +62,7 @@ class PCCFEcalc():
 			if PCC1_calc_dir is None:
 				raise RuntimeError(f"Structure calculations source not found.")
 			self.PCC1_calc_dir = Path(PCC1_calc_dir)/self.PCC1
-			if not PCC1_calc_dir.exists():
+			if not self.PCC1_calc_dir.exists():
 				raise RuntimeError(f"Structure calculations for {self.PCC1} not found.")
 		else:
 			self.PCC1_calc_dir = self.base_dir/self.PCC1
@@ -70,7 +73,7 @@ class PCCFEcalc():
 			if PCC2_calc_dir is None:
 				raise RuntimeError(f"Structure calculations source not found.")
 			self.PCC2_calc_dir = Path(PCC2_calc_dir)/self.PCC2
-			if not PCC2_calc_dir.exists():
+			if not self.PCC2_calc_dir.exists():
 				raise RuntimeError(f"Structure calculations for {self.PCC2} not found.")
 		else:
 			self.PCC2_calc_dir = self.base_dir/self.PCC2

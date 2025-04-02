@@ -21,3 +21,4 @@ testbench_FECalc.py
 /MFMOBO/run_jup.sh
 /MFMOBO/MOBO.log
 /PCCbind/*.out
+/PCCbind/submissions
