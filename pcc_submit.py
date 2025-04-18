@@ -20,7 +20,7 @@ output_path = Path("/scratch/midway2/arminsh/FE_DATA/")
 #output_path = Path("/project2/andrewferguson/armin/FE_DATA/")
 print(f"Starting {PCC}_{MOL} run.")
 calculator = FECalc(PCC, MOL, str(output_path/f"{PCC}_{MOL}"), 
-                    "/project/andrewferguson/armin/HTVS_Fentanyl/FECalc/FECalc_settings.JSON")
+                    "./FECalc/FECalc_settings.JSON")
 try:
     vals = calculator.run()
 finally:

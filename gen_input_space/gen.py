@@ -6,7 +6,7 @@ Xs = []
 
 def create_file(a0):
     pbar = tqdm(desc="Progress:", total = 16**4)
-    with open(f"/project/andrewferguson/armin/HTVS_Fentanyl/gen_input_space/{a0}.txt", 'w') as f:
+    with open(f"./{a0}.txt", 'w') as f:
         cntr = 0
         for a1 in AAs:
             for a2 in AAs:

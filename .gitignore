@@ -2,7 +2,6 @@
 /etc/
 /BACKUPS/
 .vscode/
-/MOBO/TEST/
 __pycache__/
 /BO_test.py
 /MFMOBO/backups/
@@ -22,3 +21,4 @@ testbench_FECalc.py
 /MFMOBO/MOBO.log
 /PCCbind/*.out
 /PCCbind/submissions
+.DS_Store

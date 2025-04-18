@@ -1,7 +1,6 @@
 from typing import AnyStr, Union
 import pickle
 import torch
-from tensordict.tensordict import TensorDict
 
 class Seq2Ascii:
     """
@@ -12,6 +11,7 @@ class Seq2Ascii:
         with open(psi_dict_dir, 'rb') as f:
             self.psi_dict = pickle.load(f)
         self.str2int = None
+        self.int2str = None
         self.int2tensor = None
         self.AAmap = {aa: i for i, aa in enumerate(self.psi_dict.keys())}
 
@@ -25,7 +25,7 @@ class Seq2Ascii:
         self.str2int = {seq: i for i, seq in enumerate(seqs)}
         self.int2str = {val: seq for seq, val in self.str2int.items()}
         self.int2tensor = {i: self.encode(seq) for i, seq in enumerate(seqs)}
-    
+
     def encode_to_int(self, seqs: list) -> torch.Tensor:
         return torch.tensor([self.str2int[i] for i in seqs])
 
@@ -43,7 +43,7 @@ class Seq2Ascii:
             return self.encode_list(seqs)
         else:
             return self.encode_seq(seqs)
-    
+
     def encode_seq(self, seq: str) -> torch.Tensor:
         tensor = [torch.Tensor([self.AAmap[i]]).long() for i in seq]
         return torch.stack(tensor, dim=1).view(1, -1)
@@ -80,24 +80,45 @@ class Seq2Ascii:
                 batch.append(self.int2tensor[ids[i, n].item()].squeeze())
             data.append(torch.stack(batch, dim=0))
         return torch.stack(data, dim=0)
-    
+
     def decode(self, X: torch.Tensor) -> Union[str, list]:
+        """
+        Translate int tensor to list of strings
+
+        Args:
+            X (torch.Tensor): NX1 tensor of properties
+
+        Returns:
+            str: decoded sequence
+        """
         if len(X) > 1:
             return [self._decode(i) for i in X.squeeze()]
         else:
             return self._decode(X)
-        
+     
     def _decode(self, X: torch.Tensor) -> str:
         """
-        Translate property tensor to list of strings
+        Translate an int to list of strings
 
         Args:
-            X (torch.Tensor): Nx24xL tensor of properties
+            X (torch.Tensor): int of encoded str 
 
         Returns:
             str: decoded sequence
         """
         return self.int2str[X.item()]
+
+    def seq_to_psi(self, seq: AnyStr) -> torch.Tensor:
+        """Encode AA string to blosum62 vectors
+
+        Args:
+            str (str): AA sequence string
+            psi_dict (dict): AA squence blosum62 matrix
+        """
+        psi = []
+        for a in seq:
+            psi.append(torch.div(self.psi_dict[a],torch.norm(self.psi_dict[a])))
+        return torch.stack(psi).T
 
     def get_psi(self, seqs: list) -> torch.Tensor:
         """
@@ -111,5 +132,5 @@ class Seq2Ascii:
         """
         tensor_list = []
         for seq in seqs:
-            tensor_list.append(self.seq_to_psi(self.decoder[seq.item()]))
+            tensor_list.append(self.seq_to_psi(self.decode(seq.item())))
         return torch.stack(tensor_list, dim=0)
