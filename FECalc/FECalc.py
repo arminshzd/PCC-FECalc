@@ -78,7 +78,7 @@ class FECalc():
         self.PCC_list = [] # list of PCC atom ids (str)
         self.MOL_list_atom = [] # list of MOL atom names (str)
         self.PCC_list_atom = [] # list of PCC atom names (str)
-        self.T = temp
+        self.T = float(temp)
         self.KbT = self.T * 8.314 # System temperature in J/mol
     
     def _write_report(self):
