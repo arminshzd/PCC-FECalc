@@ -22,7 +22,7 @@ with open(args.settings) as f:
 PCC_output = Path(settings["PCC_output_dir"])
 PCC_settings = Path(settings["PCC_settings_json"])
 MOL_settings = Path(settings["MOL_settings_json"])
-temperature = Path(settings["temperature"])
+temperature = float(settings["temperature"])
 
 PCC = PCCBuilder(args.pcc, PCC_output, PCC_settings)
 PCC.create()
