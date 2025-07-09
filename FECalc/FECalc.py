@@ -35,119 +35,51 @@ class FECalc():
     The complex box is then solvated and equilibrated and the free energy surface is calculated
     using `PBMetaD`.
     """
-    def __init__(self, pcc: str, target: str, base_dir: Path, settings_json: Path) -> None:
+    def __init__(self, pcc, target, base_dir: Path, temp: float) -> None:
         """
         Setup the base, PCC, and complex directories, and locate the target molecule files.
     
         Args:
-            pcc (str): single letter string of AAs, ordered from arm to bead on the PCC structure.
-            target (str): 'FEN' or 'DEC'. Target molecule for FE calculations.
+            pcc (PCCBuilder): PCC structure for FE calculations.
+            target (TargetMol): Target molecule for FE calculations.
             base_dir (Path): directory to store the calculations
             script_dir (Path): directory containing necessary scripts and templates
 
         Raises:
             ValueError: Raises Value error if `base_dir` is not a directory.
         """
-        self.PCC_code = pcc
+        self.pcc = pcc
         self.target = target
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target} (PID: {os.getpid()})")
-        self.settings_dir = Path(settings_json) # path settings.JSON
-        with open(self.settings_dir) as f:
-            self.settings = json.load(f)
         self.script_dir = Path(__file__).parent/Path("scripts")#Path(self.settings['scripts_dir'])
         self.mold_dir = Path(__file__).parent/Path("mold")
-        base_dir = Path(base_dir)
-        if base_dir.exists():
-            if not base_dir.is_dir():
-                raise ValueError(f"{base_dir} is not a directory.")
+        self.base_dir = Path(base_dir) # base directory to store files
+        if self.base_dir.exists():
+            if not self.base_dir.is_dir():
+                raise ValueError(f"{self.base_dir} is not a directory.")
         else:
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
             print(f"{now}: Base directory does not exist. Creating...")
-            base_dir.mkdir()        
-        self.base_dir = base_dir # base directory to store files
+            self.base_dir.mkdir()
 
-        self.PCC_dir = self.base_dir/f"{self.PCC_code}" # directory to store PCC calculations
-        self.PCC_dir.mkdir(exist_ok=True)
+        self.PCC_dir = self.pcc.base_dir # directory to store PCC calculations
 
         self.complex_dir = self.base_dir/"complex" # directory to store complex calculations
         self.complex_dir.mkdir(exist_ok=True)
 
-        self.PCC_ref = self.script_dir/"FGGGG.pdb" # path to refrence PCC structure
+        self.target_dir = self.target.base_dir/"export"
 
-        if target == "FEN": # path to Fentanyl .itp and .pdb files
-            self.target_dir = Path(self.settings['FEN_dir'])
-        elif target == "DEC":# path to decoy .itp and .pdb files
-            self.target_dir = Path(self.settings['DEC_dir'])
-        else:
-            raise ValueError(f"Target {target} is not defined. Select 'FEN' for Fentanyl or 'DEC' for Benzyl-Fentanyl.")
-        
-        self.AAdict31 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
-                         'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
-                         'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
-                         'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'} # 3 to 1 translator
-        self.AAdict13 = {j: i for i, j in self.AAdict31.items()} # 1 to 3 translator
-        self.charge_dict = {"D": -1, "E": -1, "R": +1, "K": +1} # AA charges at neutral pH
-
-        self.PCC_charge = sum([self.charge_dict.get(i, 0) for i in list(self.PCC_code)]) # Net charge of the PCC at pH=7
-        self.PCC_n_atoms = None # number of PCC atoms
+        self.PCC_charge = self.pcc.charge
+        self.PCC_n_atoms = self.pcc.n_atoms
         self.MOL_list = [] # list of MOL atom ids (str)
         self.PCC_list = [] # list of PCC atom ids (str)
         self.MOL_list_atom = [] # list of MOL atom names (str)
         self.PCC_list_atom = [] # list of PCC atom names (str)
-        self.free_e = None # Free energy of binding kJ/mol
-        self.free_e_err = None # Error in free energy of binding kJ/mol
-        self.K = None # Binding constant
-        self.K_err = None # Error in binding constant
-        self.KbT = float(self.settings["T"]) * 8.314 # System temperature in J/mol
-
-        self.pymol = Path(self.settings['pymol_dir']) # path to pymol installation
-        self.packmol = Path(self.settings['packmol_dir']) # path to packmol installation
-        self.acpype = Path(self.settings['acpype_dir']) # Path to acpype conda env
-    
-    def _read_pdb(self, fname):
-        with open(fname) as f:
-            f_cnt = f.readlines()
-
-        molecule_types = []
-        atom_types = []
-        atom_coordinates = []
-        for line in f_cnt:
-            line_list = line.split()
-            if line_list[0] == "ATOM" or line_list[0] == "HETATM":
-                molecule_types.append(line_list[3])
-                atom_types.append(line_list[2])
-                atom_coordinates.append(np.array([float(line_list[5]), float(line_list[6]), float(line_list[7])]))
-        return np.array(molecule_types), np.array(atom_types), np.array(atom_coordinates)
-
-    def _write_coords_to_pdb(self, f_in, f_out, coords):
-        with open(f_in) as f:
-            f_cnt = f.readlines()
-        
-        new_file = []
-        atom_i = 0
-        for line in f_cnt:
-            line_list = line.split()
-            if line_list[0] == "ATOM" or line_list[0] == "HETATM":
-                x = f"{coords[atom_i, 0]:.3f}"
-                x = " "*(8-len(x)) + x
-                y = f"{coords[atom_i, 1]:.3f}"
-                y = " "*(8-len(y)) + y
-                z = f"{coords[atom_i, 2]:.3f}"
-                z = " "*(8-len(z)) + z
-                new_line = line[:30]+x+y+z+line[54:]
-                atom_i += 1
-            else:
-                new_line = line
-        
-            new_file.append(new_line)
-        
-        with open(f_out, "w") as f:
-            f.writelines(new_file)
-
-        return None
+        self.T = temp
+        self.KbT = self.T * 8.314 # System temperature in J/mol
     
     def _write_report(self):
         report = {
@@ -195,129 +127,6 @@ class FECalc():
             done_dir = self.base_dir/stage/".done"
             with open(done_dir, 'w') as f:
                 f.writelines([""])
-        return None
-    
-    def _create_pcc(self) -> None:
-        """
-        Call `PCCmold.py` through `pymol` to mutate all residues in the refrence PCC to create the new PCC.
-
-        Returns:
-            None
-        """
-        pcc_translate = [self.AAdict13[i] for i in list(self.PCC_code)] # translate the 1 letter AA code to 3 letter code
-        numres = len(pcc_translate) # number of residues
-        mutation = "".join(pcc_translate) # concatenate the 3 letter codes
-        subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
-	# pre-optimization
-        wait_str = " --wait "
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_preopt.sh {self.PCC_dir}", shell=True) # copy preopt submission script
-        with cd(self.PCC_dir): # cd into the PCC directory
-            # pre-optimize to deal with possible clashes created while changing residues to D-AAs
-            print("Pre-optimizing: ", flush=True)
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_preopt.sh {self.PCC_code}.pdb {self.PCC_code}_babel.pdb", shell=True, check=True)
-            _, _, coords_new = self._read_pdb(f"{self.PCC_code}_babel.pdb")
-            self._write_coords_to_pdb(f"{self.PCC_code}.pdb", f"{self.PCC_code}_opt.pdb", coords_new[:self.PCC_n_atoms, ...])
-
-        self._set_done(self.PCC_dir) # mark stage as done
-        return None
-    
-    def _get_n_atoms(self, gro_dir: Path) -> None:
-        """
-        Get the number of PCC atoms from gro file
-
-        Args:
-            gro_dir (Path): path to PCC.gro file.
-        """
-        with open(gro_dir) as f:
-            gro_cnt = f.readlines()
-        self.PCC_n_atoms = int(gro_cnt[1].split()[0])
-
-    def _prep_pdb(self) -> None:
-        """
-        acpype only accepts pdb files with one residue. Remove all residue information from acpype input file.
-
-        Returns:
-            None
-        """
-        with cd(self.PCC_dir): # cd into the PCC directory
-            with open(f"{self.PCC_code}_opt.pdb") as f:
-                pdb_cnt = f.readlines()
-            line_identifier = ['HETATM', 'ATOM']
-            acpype_pdb = []
-            for line in pdb_cnt:
-                line_list = line.split()
-                if line_list[0] in line_identifier:
-                    new_line = line[:17]+"PCC"+line[20:25]+"1"+line[26:]
-                else:
-                    new_line = line
-                acpype_pdb.append(new_line)
-            
-            with open(f"{self.PCC_code}_acpype.pdb", 'w') as f:
-                f.writelines(acpype_pdb)
-            
-            return None
-
-    def _get_params(self, wait: bool = True) -> None: 
-        """
-        Run acpype on the mutated `PCC.pdb` file. Submits a job to the cluster.
-
-        Args:
-            wait (bool, optional): Whether to wait for acpype to finish. Defaults to True.
-
-        Returns:
-            None
-        """
-        
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
-
-        wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting        
-        with cd(self.PCC_dir): # cd into the PCC directory
-                        # create acpype pdb with 1 residue
-            self._prep_pdb()
-            # run acpype
-            print("Running acpype: ", flush=True)
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_acpype.sh {self.PCC_code}_acpype {self.PCC_charge}", shell=True, check=True)
-        
-            # check acpype.log for warnings
-            with open("PCC.acpype/acpype.log") as f:
-                acpype_log = f.read()
-                if "warning:" in acpype_log.lower():
-                    raise RuntimeError("""Acpype generated files are likely to have incorrect bonds. 
-                                       Check the generated PCC structure before continueing.""")
-
-        self._set_done(self.PCC_dir/"PCC.acpype")
-        return None
-    
-    def _minimize_PCC(self, wait: bool = True) -> None: 
-        """
-        Run minimization for PCC. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
-        the structure. The last frame is saved as `PCC.gro`
-
-        Args:
-            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
-
-        Returns:
-            None
-        """
-        Path.mkdir(self.PCC_dir/"em", exist_ok=True)
-        with cd(self.PCC_dir/"em"): # cd into PCC/em
-            # copy acpype files into em dir
-            subprocess.run("cp ../PCC.acpype/PCC_GMX.gro .", shell=True, check=True)
-            subprocess.run("cp ../PCC.acpype/PCC_GMX.itp .", shell=True, check=True)
-            subprocess.run("cp ../PCC.acpype/posre_PCC.itp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/topol.top .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/ions.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/em.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/sub_mdrun_PCC_em.sh .", shell=True) # copy mdrun submission script
-            # set self.PCC_n_atoms
-            self._get_n_atoms("./PCC_GMX.gro")
-            # submit em job
-            wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_PCC_em.sh {self.PCC_charge}", check=True, shell=True)
-            # get last frame of em (NOT NECESSARY)
-            # subprocess.run(f"bash {self.script_dir}/get_last_frame.sh -f ./em.trr -s ./em.tpr -o ./PCC_em.pdb", check=True, shell=True)
-        self._set_done(self.PCC_dir/"em")
-
         return None
     
     def _get_atom_ids(self, gro_file: Path) -> None:
@@ -393,6 +202,19 @@ class FECalc():
             for i in self.PCC_list:
                 f.write(f"\t{i}\t1\t1000\t1000\t1000\n")
         return None
+    
+    def update_temperature(self, mdp_in, mdp_out):
+        lines = []
+        with open(mdp_in, 'r') as f:
+            for line in f:
+                if line.strip().startswith('ref_t'):
+                    line = f'ref_t              = {self.T}     {self.T}\n'
+                elif line.strip().startswith('gen_temp'):
+                    line = f'gen_temp           = {self.T}\n'
+                lines.append(line)
+
+        with open(mdp_out, 'w') as f:
+            f.writelines(lines)
 
     def _mix(self) -> None:
         """
@@ -413,7 +235,8 @@ class FECalc():
                 subprocess.run(f"cp {self.PCC_dir}/em/PCC_em.pdb ./PCC.pdb", shell=True, check=True)
                 # create complex.pdb with packmol
                 subprocess.run(f"cp {self.mold_dir}/complex/mix/mix.inp .", shell=True, check=True)
-                subprocess.run(f"module unload gcc && module load gcc/10.2.0 && {self.packmol} < ./mix.inp", shell=True, check=True)
+                subprocess.run(f"cp {self.mold_dir}/complex/mix/run_packmol.sh .", shell=True, check=True)
+                subprocess.run("bash -c 'source run_packmol.sh'", shell=True, check=True)
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
                 top.create_topol()
@@ -470,9 +293,12 @@ class FECalc():
                 subprocess.run(f"cp {self.mold_dir}/complex/nvt/sub_mdrun_complex_nvt.sh .", shell=True) # copy mdrun submission script
                 # copy nvt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt.mdp .", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt.mdp ./nvt_temp.mdp", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt_nions.mdp ./nvt.mdp", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt_nions.mdp ./nvt_temp.mdp", shell=True, check=True)
+                # set temperature
+                self.update_temperature("./nvt_temp.mdp", "./nvt.mdp")
+                subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # submit nvt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_nvt.sh", check=True, shell=True)
@@ -492,9 +318,12 @@ class FECalc():
                 subprocess.run(f"cp {self.mold_dir}/complex/npt/sub_mdrun_complex_npt.sh .", shell=True) # copy mdrun submission script
                 # copy npt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt.mdp .", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt.mdp ./npt_temp.mdp", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_nions.mdp ./npt.mdp", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_nions.mdp ./npt_temp.mdp", shell=True, check=True)
+                # set temperature
+                self.update_temperature("./npt_temp.mdp", "./npt.mdp")
+                subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # submit npt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_npt.sh", shell=True)
@@ -544,18 +373,14 @@ class FECalc():
         # define atom ranges for PCC and MOL
         MOL_atom_id = f"{min(self.MOL_list)}-{max(self.MOL_list)}"
         PCC_atom_id = f"{min(self.PCC_list)}-{max(self.PCC_list)}"
-        a_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in ["N4", "C10", "C11", "O1"]]
-        b_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in ["C1", "C2", "C3", "O"]]
+        a_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in self.pcc.origin]
+        b_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in self.pcc.anchor_point1]
         v1a_atom_ids = "".join([f"{i}," for i in a_list])[:-1]
         v1b_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
-        b_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in ["N1", "N2", "N3", "C7", "C8"]]
+        b_list = [self.PCC_list[self.PCC_list_atom.index(i)] for i in self.pcc.anchor_point2]
         vrb_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
-        if self.target == "FEN":
-            a_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in ["C", "C1", "C2"]]
-            b_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in ["N1", "C13", "C21"]]
-        else:
-            a_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in ["C", "C1", "N"]]
-            b_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in [f"C{j}" for j in range(2, 8)]]
+        a_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in self.target.anchor_point1]
+        b_list = [self.MOL_list[self.MOL_list_atom.index(i)] for i in self.target.anchor_point2]
         
         v2a_atom_ids = "".join([f"{i}," for i in a_list])[:-1]
         v2b_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
@@ -636,9 +461,13 @@ class FECalc():
                 subprocess.run(f"rm ./plumed_r_temp.dat", shell=True)
                 # copy nvt.mdp into pbmetad
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.mold_dir}/complex/md/md.mdp .", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/md/md.mdp ./md_temp.mdp", shell=True, check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/md/md_nions.mdp ./md.mdp", shell=True, check=True)
+                    subprocess.run(f"cp {self.mold_dir}/complex/md/md_nions.mdp ./md_temp.mdp", shell=True, check=True)
+                # set temperature
+                self.update_temperature("./md_temp.mdp", "./md.mdp")
+                subprocess.run(f"rm ./md_temp.mdp", shell=True)
+                
             # submit pbmetad job. Resubmits until either the job fails 10 times or it succesfully finishes.
             cnt = 1
             try:
@@ -701,260 +530,10 @@ class FECalc():
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_rerun.sh", check=True, shell=True)
         self._set_done(self.complex_dir/'reweight')
         return None
-    
-    def _block_anal(self, x: list, weights: list, S_cor: bool = False, folds: int = 5):
-        """
-        Block analysis for a collective variable.
-
-        Args:
-            x (list): List of colvar values
-            weights (list): List of colvar weights
-            S_cor (bool, optional): Whether to include entropy corrections
-            folds (int, optional): number of blocks for block analysis
-
-        Returns:
-            data_s (dict): Dictionary with free energy of all folds, free energy from all data, and standard errors from block analysis
-        """
-        _, bins = np.histogram(x, bins=100)
-        xs = (bins[1:] + bins[:-1])/2
-        block_size = len(x)//folds
-        data = pd.DataFrame()
-        data['bin_center'] = xs
-        for fold in range(folds):
-            counts, _ = np.histogram(x[block_size*fold:(fold+1)*block_size], bins=bins, weights=weights[block_size*fold:(fold+1)*block_size])
-            Fs = -self.KbT*np.log(counts)/1000 #kJ/mol
-            if S_cor:
-                Fs += 2*self.KbT*np.log(xs)/1000
-            data[f"f_{fold}"] = Fs
-
-        data_s = pd.DataFrame()
-        data_s['bin_center'] = data['bin_center']
-        data.replace([np.inf, -np.inf], np.nan, inplace=True)
-        for fold in range(folds):
-            data_s[f"f_{fold}"] = data[f"f_{fold}"] - data[f"f_{fold}"].mean()
-
-        data_s_temp = data_s.replace([np.inf, -np.inf], np.nan)
-        data_s['std'] = data_s_temp.apply(np.std, axis=1)
-        data_s['ste'] = 1/np.sqrt(folds)*data_s['std']
-
-        counts, _ = np.histogram(x, bins=bins, weights=weights)
-        Fs = -self.KbT*np.log(counts)/1000 #kJ/mol
-        if S_cor:
-            Fs += 2*self.KbT*np.log(xs)/1000
-
-        data_s["f_all"] = Fs
-        data_s["f_all"] = data_s["f_all"] - data_s["f_all"].mean()
-        return data_s
-
-    def _find_converged(self):
-        """
-        Find the simulation time from which point the simulations can be considered converged.
-        This is used to discard the initial stage of the simulation where the bias value is <85% of the maximum.
-        """
-        with open(self.complex_dir/"md"/"COLVAR", 'r') as f:
-            fields = f.readline()[:-1].split(" ")[2:] # last char is '/n' and the first two are '#!' and 'FIELDS'
-            time_ind = fields.index("time")
-            bias_ind = fields.index("pb.bias")
-            bias = []
-            line = f.readline()
-            while line: # read up to LINE_LIM lines
-                if line[0] == "#": # Don't read comments
-                    line = f.readline()
-                    continue
-                line_list = line.split()
-                bias.append([float(line_list[time_ind]), float(line_list[bias_ind])])
-                line = f.readline()
-            bias = np.asarray(bias)
-            bias = bias[bias[:, 1] < 0.8*bias[:, 1].max()]
-            return bias[-1, 0]//1000
-    
-    def _load_plumed(self):
-        data = {}
-        with open(self.complex_dir/"reweight"/"COLVAR", 'r') as f:
-            fields = f.readline()[:-1].split(" ")[2:] # last char is '/n' and the first two are '#!' and 'FIELDS'
-            for field in fields: # add fields to the colvars dict
-                data[field] = []
-            line = f.readline()
-            while line: # read up to LINE_LIM lines
-                if line[0] == "#": # Don't read comments
-                    line = f.readline()
-                    continue
-                line_list = line.split()
-                for i, field in enumerate(fields):
-                    data[field].append(float(line_list[i]))
-                line = f.readline()
-        if len(data["time"]) < 4000000:
-            raise RuntimeError("The simulation might not have completed correctly. Check the md folder.")
-        data = pd.DataFrame(data)
-        data['weights'] = np.exp(data['pb.bias']*1000/self.KbT)
-        #init_time = self._find_converged() #ns
-        init_time = 100 # ns
-        print(f"INFO: Discarding initial {init_time} ns of data for free energy calculations.")
-        if init_time > 300:
-            raise RuntimeError("Large hill depositions detected past 300 ns mark. Check the convergence of the PBMetaD calculations.")
-        init_idx = int(init_time * 10000 // 2)
-        data = data.iloc[init_idx:] # discard the first 100 ns of data
-        return data
-    
-    def _block_anal_3d(self, x, y, z, weights, block_size=None, folds=None, nbins=100):
-        # calculate histogram for all data to get bins
-        _, binsout = np.histogramdd([x, y, z], bins=nbins, weights=weights)
-        # calculate bin centers
-        binsx, binsy, binsz = binsout
-        xs = np.round((binsx[1:] + binsx[:-1])/2, 2)
-        ys = np.round((binsy[1:] + binsy[:-1])/2, 2)
-        zs = np.round((binsz[1:] + binsz[:-1])/2, 2)
-        # find block sizes
-        if block_size is None:
-            if folds is None:
-                block_size = 5000*50 #50 ns blocks
-                folds = len(x)//block_size
-            else:
-                block_size = len(x)//folds
-        else:
-            folds = len(x)//block_size
-
-        # data frame to store the blocks
-        data = pd.DataFrame()
-        xs_unrolled = []
-        ys_unrolled = []
-        zs_unrolled = []
-        for i in xs:
-            for j in ys:
-                for k in zs:
-                    xs_unrolled.append(i)
-                    ys_unrolled.append(j)
-                    zs_unrolled.append(k)
-        
-        data['x'] = xs_unrolled
-        data['y'] = ys_unrolled
-        data['z'] = zs_unrolled
-
-        # calculate free energy for each fold
-        for fold in range(folds):
-            x_fold = x[block_size*fold:(fold+1)*block_size]
-            y_fold = y[block_size*fold:(fold+1)*block_size]
-            z_fold = z[block_size*fold:(fold+1)*block_size]
-            weights_fold = weights[block_size*fold:(fold+1)*block_size]
-            counts, _ = np.histogramdd([x_fold, y_fold, z_fold], bins=[binsx, binsy, binsz], weights=weights_fold)
-            counts[counts==0] = np.nan # discard empty bins
-            free_energy = -self.KbT*np.log(counts)/1000 #kJ/mol
-            free_energy_unrolled = []
-            for i in range(len(xs)):
-                for j in range(len(ys)):
-                    for k in range(len(zs)):
-                        free_energy_unrolled.append(free_energy[i, j, k])
-            data[f"f_{fold}"] = free_energy_unrolled
-            # Entropy correction along x axis
-            data[f"f_{fold}"] += 2*self.KbT*np.log(data.x)/1000
-        
-        # de-mean the folds for curve matching
-        data.replace([np.inf, -np.inf], np.nan, inplace=True)
-        for fold in range(folds):
-            data[f"f_{fold}"] = data[f"f_{fold}"] - data[f"f_{fold}"].mean()
-        
-        # calcualte standard deviation and standard error
-        data['std'] = data[[f"f_{fold}" for fold in range(folds)]].apply(np.std, axis=1)
-        data['ste'] = 1/np.sqrt(folds)*data['std']
-
-        return data
-    
-    def _calc_region_int(self, data):
-        """
-        data = DataFrame with columns x(dcom), y(angle), z(cos), F(free energy)
-        """
-        data["exp"] = np.exp(-data.F*1000/self.KbT)
-        # integrate over Z
-        Z_integrand = {"x": [], "y": [], "exp":[]}
-        for x in data.x.unique():
-            for y in data.y.unique():
-                FE_this_xy = data[(data.x == x) & (data.y == y)].copy()
-                FE_this_xy.sort_values(by='z', inplace=True)
-                Z_integrand["x"].append(x)
-                Z_integrand["y"].append(y)
-                if FE_this_xy.empty: # if it doesn't exist, it's empty
-                    Z_integrand["exp"].append(0.0)
-                else:
-                    Z_integrand["exp"].append(simpson(y=FE_this_xy.exp.to_numpy(), x=FE_this_xy.z.to_numpy()))
-        
-        Z_integrand_pd = pd.DataFrame(Z_integrand)
-        # integrate over Y
-        Y_integrand = {"x": [], "exp":[]}
-        for x in Z_integrand_pd.x.unique():
-            FE_this_x = Z_integrand_pd[Z_integrand_pd.x == x].copy()
-            FE_this_x.sort_values(by='y', inplace=True)
-            Y_integrand["x"].append(x)
-            if FE_this_x.empty:
-                Y_integrand["exp"].append(0.0)
-            else:
-                Y_integrand["exp"].append(simpson(y=FE_this_x.exp.to_numpy(), x=FE_this_x.y.to_numpy()))
-        
-        # integrate over X
-        Y_integrand_pd = pd.DataFrame(Y_integrand)
-        Y_integrand_pd.sort_values(by='x', inplace=True)
-        integrand = simpson(y=Y_integrand_pd.exp.to_numpy(), x=Y_integrand_pd.x.to_numpy())
-        
-        return -self.KbT*np.log(integrand)/1000
-
-    def _calc_deltaF(self, bound_data, unbound_data):
-        r_int = self._calc_region_int(bound_data.copy())
-        p_int = self._calc_region_int(unbound_data.copy())
-        return r_int - p_int
-    
-    def _calc_FE(self) -> None:
-        colvars = self._load_plumed() # read colvars
-        # block analysis
-        block_anal_data = self._block_anal_3d(colvars.dcom, colvars.ang, 
-                                         colvars.v3cos, colvars.weights, 
-                                         nbins=50, block_size=5000*100)
-        f_list = []
-        f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
-        discarded_blocks = 0
-        for i in f_cols:
-            try:
-                # bound = 0<=dcom<=1.5 nm
-                bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', 'z', i, 'ste']]
-                bound_data.rename(columns={i: 'F'}, inplace=True)
-                bound_data.dropna(inplace=True)
-                # unbound = 2.0<dcom<2.4~inf nm 
-                unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', 'z', i, 'ste']]
-                unbound_data.rename(columns={i: 'F'}, inplace=True)
-                unbound_data.dropna(inplace=True)
-                f_list.append(self._calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
-            except:
-                discarded_blocks += 1
-                continue
-        
-        if discarded_blocks != 0:
-            print(f"WARNING: {discarded_blocks} block(s) were discarded from the calculations possibly because the system was"\
-                   " stuck in a bound state for longer than 100 ns consecutively. Check the colvar trajectories.")
-        f_list = np.array(f_list)
-        return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
-    
-    def _calc_K(self) -> tuple:
-        self.K = np.exp(-self.free_e*1000/self.KbT)
-        self.K_err = self.K*self.free_e_err*1000/self.KbT
-        return self.K, self.K_err
-    
-    def _postprocess(self) -> None:
-        # calc FE
-        if not (self.base_dir/"metadata.JSON").exists():
-            free_e, free_e_err = self._calc_FE()
-            self.free_e = free_e
-            self.free_e_err = free_e_err
-            # calculate Ks
-            self._calc_K()
-            # write report
-            self._write_report()
-        return None
 
     def run(self) -> tuple:
         """Wrapper for FE caclculations. Create PCC, call acpype, 
         minimize, create complex, and run PBMetaD.
-
-        Returns:
-            self.free_e (dict): Free energy of adsorption b/w MOL and PCC
-            self.free_e_err (dict): Error in free energy of adsorption b/w MOL and PCC
         """
         # create PCC
         now = datetime.now()
@@ -1006,14 +585,7 @@ class FECalc():
         if not self._check_done(self.complex_dir/'reweight'):
             self._reweight()
         print("\tDone.", flush=True)
-        #postprocess
-        now = datetime.now()
-        now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Postprocessing: ", flush=True)
-        self._postprocess()
-        now = datetime.now()
-        now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: All steps completed.")
         print("-"*30 + "Finished" + "-"*30)
         
-        return self.free_e, self.free_e_err, self.K, self.K_err
+        return None

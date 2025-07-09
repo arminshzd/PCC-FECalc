@@ -1,0 +1,232 @@
+import os
+import subprocess
+import json
+from pathlib import Path
+from datetime import datetime
+
+from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb
+
+
+class PCCBuilder():
+    """
+    Class to generate the PCC from the master PCC structure. Then `AMBER` parameters
+    are generated for the new PCC using `acpype`. New PCC is then solvated and equilibrated.
+    """
+
+    def __init__(self, pcc: str, base_dir: Path, settings_json: Path) -> None:
+        """
+        Setup the PCCBuilder directories
+    
+        Args:
+            pcc (str): single letter string of AAs, ordered from arm to bead on the PCC structure.
+            base_dir (Path): directory to store the calculations
+            settings_json (Path): directory of settings.JSON file
+
+        Raises:
+            ValueError: Raises Value error if `base_dir` is not a directory.
+        """
+        self.PCC_code = pcc
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Building and minimizing structure for {self.PCC_code} (PID: {os.getpid()})")
+        self.settings_dir = Path(settings_json) # path settings.JSON
+        with open(self.settings_dir) as f:
+            self.settings = json.load(f)
+        self.script_dir = Path(__file__).parent/"scripts"
+        self.mold_dir = Path(__file__).parent/"mold"
+        self.base_dir = Path(base_dir) # base directory to store files
+        if self.base_dir.exists():
+            if not self.base_dir.is_dir():
+                raise ValueError(f"{self.base_dir} is not a directory.")
+        else:
+            now = datetime.now()
+            now = now.strftime("%m/%d/%Y, %H:%M:%S")
+            print(f"{now}: Base directory does not exist. Creating...")
+            self.base_dir.mkdir()
+
+        self.PCC_dir = self.base_dir # directory to store PCC calculations
+        self.PCC_dir.mkdir(exist_ok=True)
+
+        self.PCC_ref = Path(self.settings["ref_PCC_dir"]) # path to refrence PCC structure
+        
+        self.AAdict31 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+                         'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+                         'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
+                         'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'} # 3 to 1 translator
+        self.AAdict13 = {j: i for i, j in self.AAdict31.items()} # 1 to 3 translator
+        self.charge_dict = {"D": -1, "E": -1, "R": +1, "K": +1} # AA charges at neutral pH
+
+        self.charge = sum([self.charge_dict.get(i, 0) for i in list(self.PCC_code)]) # Net charge of the PCC at pH=7
+        self.n_atoms = None # number of PCC atoms
+        self.origin = self.settings["origin"]
+        self.anchor_point1 = self.settings["anchor1"]
+        self.anchor_point2 = self.settings["anchor2"]
+
+        self.pymol = Path(self.settings['pymol_dir']) # path to pymol installation
+
+    def _check_done(self, stage: str) -> bool:
+        """
+        Check if calculation has been performed already
+        Args:
+            stage (str): calculation stage to check
+
+        Returns:
+            bool: True if done, False otherwise
+        """
+        try:
+            with cd(self.base_dir/stage):
+                done_dir = self.base_dir/stage/".done"
+                if done_dir.exists():
+                    return True
+                else:
+                    return False
+        except:
+            return False
+    
+    def _set_done(self, stage: str) -> None:
+        """
+        create an empty file ".done" in the stage directory to mark is has been performed already.
+
+        Args:
+            stage (str): stage to set as done
+
+        Returns:
+            None
+        """
+        with cd(self.base_dir/stage):
+            done_dir = self.base_dir/stage/".done"
+            with open(done_dir, 'w') as f:
+                f.writelines([""])
+        return None
+
+    def _create_pcc(self) -> None:
+        """
+        Call `PCCmold.py` through `pymol` to mutate all residues in the refrence PCC to create the new PCC.
+
+        Returns:
+            None
+        """
+        pcc_translate = [self.AAdict13[i] for i in list(self.PCC_code)] # translate the 1 letter AA code to 3 letter code
+        numres = len(pcc_translate) # number of residues
+        mutation = "".join(pcc_translate) # concatenate the 3 letter codes
+        subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
+	    # pre-optimization
+        wait_str = " --wait "
+        subprocess.run(f"cp {self.mold_dir}/PCC/sub_preopt.sh {self.PCC_dir}", shell=True) # copy preopt submission script
+        with cd(self.PCC_dir): # cd into the PCC directory
+            # pre-optimize to deal with possible clashes created while changing residues to D-AAs
+            print("Pre-optimizing: ", flush=True)
+            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_preopt.sh {self.PCC_code}.pdb {self.PCC_code}_babel.pdb", shell=True, check=True)
+            _, _, coords_new = _read_pdb(f"{self.PCC_code}_babel.pdb")
+            _write_coords_to_pdb(f"{self.PCC_code}.pdb", f"{self.PCC_code}_opt.pdb", coords_new[:self.n_atoms, ...])
+
+        self._set_done(self.PCC_dir) # mark stage as done
+        return None
+    
+    def _get_n_atoms(self, gro_dir: Path) -> None:
+        """
+        Get the number of PCC atoms from gro file
+
+        Args:
+            gro_dir (Path): path to PCC.gro file.
+        """
+        with open(gro_dir) as f:
+            gro_cnt = f.readlines()
+        self.n_atoms = int(gro_cnt[1].split()[0])
+ 
+    def _get_params(self, wait: bool = True) -> None: 
+        """
+        Run acpype on the mutated `PCC.pdb` file. Submits a job to the cluster.
+
+        Args:
+            wait (bool, optional): Whether to wait for acpype to finish. Defaults to True.
+
+        Returns:
+            None
+        """
+        
+        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
+
+        wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting        
+        with cd(self.PCC_dir): # cd into the PCC directory
+                        # create acpype pdb with 1 residue
+            _prep_pdb(f"{self.PCC_code}_opt.pdb", f"{self.PCC_code}_acpype.pdb", "PCC")
+            # run acpype
+            print("Running acpype: ", flush=True)
+            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_acpype.sh {self.PCC_code}_acpype PCC {self.charge}", shell=True, check=True)
+        
+            # check acpype.log for warnings
+            with open("PCC.acpype/acpype.log") as f:
+                acpype_log = f.read()
+                if "warning:" in acpype_log.lower():
+                    raise RuntimeError("""Acpype generated files are likely to have incorrect bonds. 
+                                       Check the generated PCC structure before continueing.""")
+
+        self._set_done(self.PCC_dir/"PCC.acpype")
+        return None
+    
+    def _minimize_PCC(self, wait: bool = True) -> None: 
+        """
+        Run minimization for PCC. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
+        the structure. The last frame is saved as `PCC.gro`
+
+        Args:
+            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
+
+        Returns:
+            None
+        """
+        Path.mkdir(self.PCC_dir/"em", exist_ok=True)
+        with cd(self.PCC_dir/"em"): # cd into PCC/em
+            # copy acpype files into em dir
+            subprocess.run("cp ../PCC.acpype/PCC_GMX.gro .", shell=True, check=True)
+            subprocess.run("cp ../PCC.acpype/PCC_GMX.itp .", shell=True, check=True)
+            subprocess.run("cp ../PCC.acpype/posre_PCC.itp .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/topol.top .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/ions.mdp .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/em.mdp .", shell=True, check=True)
+            subprocess.run(f"cp {self.mold_dir}/PCC/em/sub_mdrun_em.sh .", shell=True) # copy mdrun submission script
+            # set self.n_atoms
+            self._get_n_atoms("./PCC_GMX.gro")
+            # submit em job
+            wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
+            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_em.sh PCC {self.charge}", check=True, shell=True)
+        self._set_done(self.PCC_dir/"em")
+
+        return None
+
+    def create(self) -> tuple:
+        """Wrapper for building PCC structures.
+
+        Returns:
+            None
+        """
+        # create PCC
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Running pymol: ", end="", flush=True)
+        if not self._check_done(self.PCC_dir):
+            self._create_pcc()
+            print("Check the initial structure and rerun to continue.")
+            return None
+        print("\tDone.", flush=True)
+        # get params
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Getting gaff parameters: ", flush=True)
+        if not self._check_done(self.PCC_dir/"PCC.acpype"):
+            self._get_params()
+        print("Done.", flush=True)
+        # minimize PCC
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Minimizing PCC: ", end="", flush=True)
+        if not self._check_done(self.PCC_dir/'em'):
+            self._minimize_PCC()
+        print("\tDone.", flush=True)
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: All steps completed.")
+        print("-"*30 + "Finished" + "-"*30)
+        
+        return None

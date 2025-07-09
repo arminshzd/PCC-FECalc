@@ -1,0 +1,8 @@
+{
+    "name": "ACT",
+    "charge": 0,
+    "anchor1": ["C", "C1", "N"],
+    "anchor2": ["C2", "C3", "C4", "C5", "C6", "C7"],
+    "output_dir": "",
+    "input_pdb_dir": ""
+}

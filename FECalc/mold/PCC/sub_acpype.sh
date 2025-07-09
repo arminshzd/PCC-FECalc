@@ -22,4 +22,4 @@
 module load python/anaconda-2021.05
 source activate /scratch/midway2/arminsh/envs/acpype
 
-acpype -i $1.pdb -b PCC -c bcc -n $2 -a gaff2
+acpype -i $1.pdb -b $2 -c bcc -n $3 -a gaff2

@@ -36,21 +36,21 @@ module load openmpi/4.1.1+gcc-10.1.0 cuda/11.2
 source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2-256/bin/GMXRC
 
 ## Create box
-gmx editconf -f PCC_GMX.gro -o PCC_box.gro -c -d 1.0 -bt cubic
+gmx editconf -f "$1"_GMX.gro -o "$1"_box.gro -c -d 1.0 -bt cubic
 ## Solvate
-gmx solvate -cp PCC_box.gro -cs spc216.gro -o PCC_sol.gro -p topol.top
+gmx solvate -cp "$1"_box.gro -cs spc216.gro -o "$1"_sol.gro -p topol.top
 ## Neutralize
-CHARGE=$1
+CHARGE=$2
 echo "System total charge: $CHARGE"
 if [ $CHARGE -ne 0 ]
 then
-    gmx grompp -f ions.mdp -c PCC_sol.gro -p topol.top -o ions.tpr -maxwarn 2
-    gmx genion -s ions.tpr -o PCC_sol_ions.gro -p topol.top -pname NA -nname CL -neutral << EOF
+    gmx grompp -f ions.mdp -c "$1"_sol.gro -p topol.top -o ions.tpr -maxwarn 2
+    gmx genion -s ions.tpr -o "$1"_sol_ions.gro -p topol.top -pname NA -nname CL -neutral << EOF
 4
 EOF
-    gmx grompp -f em.mdp -c PCC_sol_ions.gro -p topol.top -o em.tpr
+    gmx grompp -f em.mdp -c "$1"_sol_ions.gro -p topol.top -o em.tpr
 else
-    gmx grompp -f em.mdp -c PCC_sol.gro -p topol.top -o em.tpr
+    gmx grompp -f em.mdp -c "$1"_sol.gro -p topol.top -o em.tpr
 fi
 
 gmx mdrun -ntomp "$NP" -deffnm em
@@ -70,6 +70,6 @@ $nframes
 EOF
 
 # Call trjconv
-gmx trjconv -s em.tpr -f em.trr -o PCC_em.pdb -pbc whole -conect -fr $ndx_dir <<EOF
+gmx trjconv -s em.tpr -f em.trr -o "$1"_em.pdb -pbc whole -conect -fr $ndx_dir <<EOF
 2
 EOF

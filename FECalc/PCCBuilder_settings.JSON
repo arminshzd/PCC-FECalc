@@ -1,0 +1,7 @@
+{
+    "ref_PCC_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FECalc/scripts/FGGGG.pdb",
+    "origin": ["N4", "C10", "C11", "O1"],
+    "anchor1": ["C1", "C2", "C3", "O"],
+    "anchor2": ["N1", "N2", "N3", "C7", "C8"],
+    "pymol_dir": "module load pymol && pymol"
+}
