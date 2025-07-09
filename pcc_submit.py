@@ -6,6 +6,7 @@ import json
 from FECalc.TargetMOL import TargetMOL
 from FECalc.PCCBuilder import PCCBuilder
 from FECalc.FECalc import FECalc
+from FECalc.postprocess import postprocess
 
 
 # Read User Input
@@ -34,6 +35,11 @@ now = now.strftime("%m/%d/%Y, %H:%M:%S")
 print(f"Starting {PCC.PCC_code}_{MOL.name} run.")
 try:
     calculator.run()
+except:
+    print(f"FECalc failed. Check {complex_output} for more info.")
+
+try:
+    postprocess(calculator)
 finally:
     log_dir = complex_output/"metadata.JSON"
     if log_dir.exists():
