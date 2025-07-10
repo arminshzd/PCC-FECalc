@@ -1,6 +1,7 @@
 import re
 import json
 from pathlib import Path
+import subprocess
 import numpy as np
 import pandas as pd
 from scipy.integrate import simpson
@@ -20,13 +21,18 @@ def _load_plumed(fname, KbT):
             for i, field in enumerate(fields):
                 data[field].append(float(line_list[i]))
             line = f.readline()
-    if len(data["time"]) < 4000000:
-        raise RuntimeError("The simulation might not have completed correctly. Check the md folder.")
+    #if len(data["time"]) < 4000000:
+        #raise RuntimeError("The simulation might not have completed correctly. Check the md folder.")
     data = pd.DataFrame(data)
     data['weights'] = np.exp(data['pb.bias']*1000/KbT)
     return data
 
-def _block_anal_3d(x, y, z, weights, KbT, block_size=None, folds=None, nbins=100):
+def _get_box_size(gro_fname):
+    out = subprocess.run(f"tail -n 1 {gro_fname}", shell=True, capture_output=True)
+    return float(out.stdout.split()[0])
+
+
+def _block_anal_3d(x, y, z, weights, KbT, nbins, folds):
     # calculate histogram for all data to get bins
     _, binsout = np.histogramdd([x, y, z], bins=nbins, weights=weights)
     # calculate bin centers
@@ -35,14 +41,7 @@ def _block_anal_3d(x, y, z, weights, KbT, block_size=None, folds=None, nbins=100
     ys = np.round((binsy[1:] + binsy[:-1])/2, 2)
     zs = np.round((binsz[1:] + binsz[:-1])/2, 2)
     # find block sizes
-    if block_size is None:
-        if folds is None:
-            block_size = 5000*50 #50 ns blocks
-            folds = len(x)//block_size
-        else:
-            block_size = len(x)//folds
-    else:
-        folds = len(x)//block_size
+    block_size = len(x)//folds
 
     # data frame to store the blocks
     data = pd.DataFrame()
@@ -132,17 +131,16 @@ def _calc_deltaF(bound_data, unbound_data, KbT):
     p_int = _calc_region_int(unbound_data.copy(), KbT)
     return r_int - p_int
 
-def _calc_FE(ifdir, KbT) -> None:
+def _calc_FE(ifdir, KbT, init_time, n_folds) -> None:
     colvars = _load_plumed(ifdir/"reweight"/"COLVAR", KbT) # read colvars
-    init_time = 100 # ns
     print(f"INFO: Discarding initial {init_time} ns of data for free energy calculations.")
     init_idx = int(init_time * 10000 // 2)
-    colvars = colvars.iloc[init_idx:] # discard the first 100 ns of data
+    colvars = colvars.iloc[init_idx:] # discard the first `init_time` ns of data
     # block analysis
     colvars.dropna(inplace=True)
     block_anal_data = _block_anal_3d(colvars.dcom, colvars.ang, 
                                         colvars.v3cos, colvars.weights, KbT, 
-                                        nbins=50, block_size=5000*100)
+                                        50, n_folds)
     f_list = []
     f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
     discarded_blocks = 0
@@ -167,9 +165,12 @@ def _calc_FE(ifdir, KbT) -> None:
     f_list = np.array(f_list)
     return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
-def _calc_K(free_e, free_e_err, KbT) -> tuple:
-    K = np.exp(-free_e*1000/KbT)
-    K_err = K*free_e_err*1000/KbT
+def _calc_K(free_e, free_e_err, KbT, box_size) -> tuple:
+    # CUBIC BOX ONLY
+    A = 1/(6.022e23*box_size**3*1e-24)# C0 (M) for box edge = `box_size`
+    B = 1000/KbT
+    K = A*np.exp(B*free_e)*1e6 # muM
+    K_err = B*K*free_e_err # muM
     return K, K_err
 
 def _write_report(PCC, target, fname, free_e, free_e_err, K, K_err):
@@ -185,27 +186,30 @@ def _write_report(PCC, target, fname, free_e, free_e_err, K, K_err):
         json.dump(report, f, indent=3)
     return None
 
-def postprocess(fecalc) -> None:
+def postprocess(fecalc, **kwargs) -> None:
+    init_time = float(kwargs.get("discard_initial", 1)) # in ns
+    n_folds = int(kwargs.get("n_folds", 5)) # # folds
     KbT = fecalc.KbT
     ifdir = fecalc.complex_dir
+    box_size = _get_box_size(ifdir/'md'/'md.gro')
     ofname = ifdir.parent/"metadata.JSON"
     if not (ofname).exists():
-        free_e, free_e_err = _calc_FE(ifdir, KbT)
+        free_e, free_e_err = _calc_FE(ifdir, KbT, init_time, n_folds)
         # calculate Ks
-        K, K_err = _calc_K(free_e, free_e_err, KbT)
+        K, K_err = _calc_K(free_e, free_e_err, KbT, box_size)
         # write report
         _write_report(fecalc.pcc.PCC_code, fecalc.target.name, ofname, free_e, free_e_err, K, K_err)
-    return None
+        return None
 
-def postprocess_wrapper(PCC, target, ifdir, KbT) -> None:
+def postprocess_wrapper(PCC, target, ifdir, KbT, init_time, n_folds, box_size) -> None:
     # calc FE
     ifdir = Path(ifdir)
     ifdir = ifdir/"complex"
     ofname = ifdir.parent/"metadata.JSON"
     if not (ofname).exists():
-        free_e, free_e_err = _calc_FE(ifdir, KbT)
+        free_e, free_e_err = _calc_FE(ifdir, KbT, init_time, n_folds)
         # calculate Ks
-        K, K_err = _calc_K(free_e, free_e_err, KbT)
+        K, K_err = _calc_K(free_e, free_e_err, KbT, box_size)
         # write report
         _write_report(PCC, target, ofname, free_e, free_e_err, K, K_err)
     return None
@@ -218,9 +222,12 @@ if __name__=="__main__":
     parser.add_argument('target', type=str, help="target name")
     parser.add_argument('input', type=str, help="input files directory")
     parser.add_argument('temperature', type=str, help="simulation temperature")
+    parser.add_argument('box_edge', type=str, help="simulation box edge size (nm)")
+    parser.add_argument('init_time', type=str, help="simulation length to discard from the begining of the traj")
+    parser.add_argument('block_size', type=str, help="block analysis block size")
 
     args = parser.parse_args()
 
     KbT = 8.314*args.temperature
-
-    postprocess_wrapper(args.PCC, args.target, args.input, KbT)
+    postprocess_wrapper(args.PCC, args.target, args.input, KbT, args.init_time, 
+                        args.block_size, args.box_size)

@@ -1,3 +1,4 @@
+import os
 import subprocess
 import json
 from pathlib import Path
@@ -20,11 +21,16 @@ class TargetMOL():
 
         with open(Path(settings_json)) as f:
             self.settings = json.load(f)
+
+        self.name = self.settings["name"]
+        now = datetime.now()
+        now = now.strftime("%m/%d/%Y, %H:%M:%S")
+        print(f"{now}: Building and minimizing structure for {self.name} (PID: {os.getpid()})")
         
         self.script_dir = Path(__file__).parent/Path("scripts")
         self.mold_dir = Path(__file__).parent/Path("mold")
 
-        self.base_dir = self.settings['output_dir'] # base directory to store files
+        self.base_dir = Path(self.settings['output_dir']) # base directory to store files
         if self.base_dir.exists():
             if not self.base_dir.is_dir():
                 raise ValueError(f"{self.base_dir} is not a directory.")
@@ -34,7 +40,6 @@ class TargetMOL():
             print(f"{now}: Base directory does not exist. Creating...")
             self.base_dir.mkdir()
 
-        self.name = self.settings["name"]
         self.charge = int(self.settings.get("charge", 0))
         self.anchor_point1 = self.settings["anchor1"]
         self.anchor_point2 = self.settings["anchor2"]
@@ -192,7 +197,7 @@ class TargetMOL():
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
             print(f"{now}: All steps completed.")
-            print("-"*30 + "Finished" + "-"*30)
         else:
             print(f"{now}: Target molecule loaded from previous calculations.")
+        print("-"*30 + "Finished" + "-"*30)
         return None

@@ -1,0 +1,16 @@
+{
+    "PCC_output_dir": "./HTVS_test/PCCs",
+    "PCC_settings_json": "./PCCBuilder_settings.JSON",
+    "MOL_settings_json": "./FEN_settings.JSON",
+    "complex_output_dir": "./HTVS_test/DATA",
+    "temperature": 300,
+    "metad_settings": {
+        "metad_height": 3.0,
+        "metad_pace": 500,
+        "metad_bias_factor": 20
+    },
+    "postprocess_settings": {
+        "discard_initial": 100,
+        "n_folds": 5
+    }
+}

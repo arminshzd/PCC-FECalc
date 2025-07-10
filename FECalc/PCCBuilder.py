@@ -44,7 +44,7 @@ class PCCBuilder():
             print(f"{now}: Base directory does not exist. Creating...")
             self.base_dir.mkdir()
 
-        self.PCC_dir = self.base_dir # directory to store PCC calculations
+        self.PCC_dir = self.base_dir/f"{self.PCC_code}" # directory to store PCC calculations
         self.PCC_dir.mkdir(exist_ok=True)
 
         self.PCC_ref = Path(self.settings["ref_PCC_dir"]) # path to refrence PCC structure
@@ -192,7 +192,6 @@ class PCCBuilder():
             wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_em.sh PCC {self.charge}", check=True, shell=True)
         self._set_done(self.PCC_dir/"em")
-
         return None
 
     def create(self) -> tuple:

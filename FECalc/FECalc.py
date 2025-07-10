@@ -35,7 +35,7 @@ class FECalc():
     The complex box is then solvated and equilibrated and the free energy surface is calculated
     using `PBMetaD`.
     """
-    def __init__(self, pcc, target, base_dir: Path, temp: float) -> None:
+    def __init__(self, pcc, target, base_dir: Path, temp: float, **kwargs) -> None:
         """
         Setup the base, PCC, and complex directories, and locate the target molecule files.
     
@@ -52,7 +52,7 @@ class FECalc():
         self.target = target
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Free energy calculations for {self.PCC_code} with {self.target} (PID: {os.getpid()})")
+        print(f"{now}: Free energy calculations for {self.pcc.PCC_code} with {self.target.name} (PID: {os.getpid()})")
         self.script_dir = Path(__file__).parent/Path("scripts")#Path(self.settings['scripts_dir'])
         self.mold_dir = Path(__file__).parent/Path("mold")
         self.base_dir = Path(base_dir) # base directory to store files
@@ -65,7 +65,7 @@ class FECalc():
             print(f"{now}: Base directory does not exist. Creating...")
             self.base_dir.mkdir()
 
-        self.PCC_dir = self.pcc.base_dir # directory to store PCC calculations
+        self.PCC_dir = self.pcc.PCC_dir # directory to store PCC calculations
 
         self.complex_dir = self.base_dir/"complex" # directory to store complex calculations
         self.complex_dir.mkdir(exist_ok=True)
@@ -80,7 +80,12 @@ class FECalc():
         self.PCC_list_atom = [] # list of PCC atom names (str)
         self.T = float(temp)
         self.KbT = self.T * 8.314 # System temperature in J/mol
-    
+
+        # MetaD setup
+        self.metad_height = float(kwargs.get("metad_height", 3.0))
+        self.metad_pace = int(kwargs.get("metad_pace", 500))
+        self.metad_bias_factor = float(kwargs.get("metad_bias_factor", 20))
+
     def _write_report(self):
         report = {
             "PCC": self.PCC_code,
@@ -237,6 +242,9 @@ class FECalc():
                 subprocess.run(f"cp {self.mold_dir}/complex/mix/mix.inp .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/mix/run_packmol.sh .", shell=True, check=True)
                 subprocess.run("bash -c 'source run_packmol.sh'", shell=True, check=True)
+                # check for complex.pdb
+                if not Path.exists(self.complex_dir/"complex.pdb"):
+                    raise RuntimeError(f"Packmol output not found. Check {self.complex_dir}.")
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
                 top.create_topol()
@@ -273,11 +281,13 @@ class FECalc():
                 subprocess.run(f"cp {self.mold_dir}/complex/em/em.mdp .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/em/sub_mdrun_complex_em.sh .", shell=True) # copy mdrun submission script
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.PCC_charge}", check=True, shell=True)
+                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.pcc.charge}", check=True, shell=True)
             self._set_done(self.complex_dir/'em')
-        with cd(self.complex_dir/"em"): # cd into complex/em
-            # update atom ids
-            self._get_atom_ids("./em.gro")
+
+        if not self.MOL_list:
+            with cd(self.complex_dir/"em"): # cd into complex/em
+                # update atom ids
+                self._get_atom_ids("./em.gro")
         ## NVT
         if not self._check_done(self.complex_dir/"nvt"):
             # create complex/nvt dir
@@ -301,7 +311,7 @@ class FECalc():
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # submit nvt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_nvt.sh", check=True, shell=True)
+                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_nvt.sh", check=True, shell=True)
             self._set_done(self.complex_dir/'nvt')
         ## NPT
         if not self._check_done(self.complex_dir/"npt"):
@@ -326,8 +336,9 @@ class FECalc():
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # submit npt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_complex_npt.sh", shell=True)
+                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_npt.sh", shell=True)
             self._set_done(self.complex_dir/'npt')
+        return
 
     def _is_continuous(self, ids: list) -> bool:
         """
@@ -386,23 +397,25 @@ class FECalc():
         v2b_atom_ids = "".join([f"{i}," for i in b_list])[:-1]
 
         # replace new ids
+        replacements = {
+            "${11}": self.metad_bias_factor,
+            "${10}": self.metad_pace,
+            "${9}": self.T,
+            "${8}": self.metad_height,
+            "${7}": vrb_atom_ids,
+            "${6}": v2b_atom_ids,
+            "${5}": v2a_atom_ids,
+            "${4}": v1b_atom_ids,
+            "${3}": v1a_atom_ids,
+            "${2}": MOL_atom_id,
+            "${1}": PCC_atom_id,
+        }
+
         for i, line in enumerate(cnt):
-            if "$1" in line:
-                line = line.replace("$1", PCC_atom_id)
-            if "$2" in line:
-                line = line.replace("$2", MOL_atom_id)
-            if "$3" in line:
-                line = line.replace("$3", v1a_atom_ids)
-            if "$4" in line:
-                line = line.replace("$4", v1b_atom_ids)
-            if "$5" in line:
-                line = line.replace("$5", v2a_atom_ids)
-            if "$6" in line:
-                line = line.replace("$6", v2b_atom_ids)
-            if "$7" in line:
-                line = line.replace("$7", vrb_atom_ids)
-            
+            for key, value in replacements.items():
+                line = line.replace(key, str(value))
             cnt[i] = line
+        
         # write new plumed file
         with open(plumed_out, 'w') as f:
             f.writelines(cnt)
@@ -471,7 +484,7 @@ class FECalc():
             # submit pbmetad job. Resubmits until either the job fails 10 times or it succesfully finishes.
             cnt = 1
             try:
-                subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
+                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
                 if not Path.exists(self.complex_dir/"md"/"md.gro"): # making sure except block is executed if the run is not complete, regardless of system exit code
                     raise RuntimeError("Run not completed.")
             except:
@@ -489,7 +502,7 @@ class FECalc():
                         now = datetime.now()
                         now = now.strftime("%m/%d/%Y, %H:%M:%S")
                         print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
-                        subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
+                        subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
                         print()
                         fail_flag = False
                     except:
@@ -527,7 +540,7 @@ class FECalc():
             subprocess.run(f"rm ./reweight_temp.dat", shell=True)
             # submit reweight job
             wait_str = " --wait " if wait else "" # whether to wait for reweight to finish before exiting
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_rerun.sh", check=True, shell=True)
+            subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_rerun.sh", check=True, shell=True)
         self._set_done(self.complex_dir/'reweight')
         return None
 
@@ -535,29 +548,6 @@ class FECalc():
         """Wrapper for FE caclculations. Create PCC, call acpype, 
         minimize, create complex, and run PBMetaD.
         """
-        # create PCC
-        now = datetime.now()
-        now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Running pymol: ", end="", flush=True)
-        if not self._check_done(self.PCC_dir):
-            self._create_pcc()
-            print("Check the initial structure and rerun the code.")
-            return self.free_e, self.free_e_err, self.K, self.K_err
-        print("\tDone.", flush=True)
-        # get params
-        now = datetime.now()
-        now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Getting gaff parameters: ", flush=True)
-        if not self._check_done(self.PCC_dir/"PCC.acpype"):
-            self._get_params()
-        print("Done.", flush=True)
-        # minimize PCC
-        now = datetime.now()
-        now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        print(f"{now}: Minimizing PCC: ", end="", flush=True)
-        if not self._check_done(self.PCC_dir/'em'):
-            self._minimize_PCC()
-        print("\tDone.", flush=True)
         # create the complex
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
