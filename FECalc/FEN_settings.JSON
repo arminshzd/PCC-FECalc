@@ -1,8 +1,0 @@
-{
-    "name": "FEN",
-    "charge": 0,
-    "anchor1": ["C", "C1", "C2"],
-    "anchor2": ["N1", "C13", "C21"],
-    "output_dir": "",
-    "input_pdb_dir": ""
-}
