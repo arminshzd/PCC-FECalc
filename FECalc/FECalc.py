@@ -934,9 +934,9 @@ class FECalc():
     def _calc_K(self) -> tuple:
         A = 1/(6.022e23*5**3*1e-24) # C0 (M) for box edge = 5 A
         B = 1000/self.KbT
-        K = A*np.exp(B*self.free_e)*1e6 # muM
-        K_err = B*K*self.free_e_err # muM
-        return K, K_err
+        self.K = A*np.exp(B*self.free_e)*1e6 # muM
+        self.K_err = B*self.K*self.free_e_err # muM
+        return self.K, self.K_err
     
     def _postprocess(self) -> None:
         # calc FE
