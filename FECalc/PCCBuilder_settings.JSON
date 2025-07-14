@@ -1,5 +1,5 @@
 {
-    "ref_PCC_dir": "/project/andrewferguson/armin/HTVS_Fentanyl/FECalc/scripts/FGGGG.pdb",
+    "ref_PCC_dir": "/scratch/midway2/arminsh/FEN-HTVS/FECalc/scripts/GGGGG.pdb",
     "origin": ["N4", "C10", "C11", "O1"],
     "anchor1": ["C1", "C2", "C3", "O"],
     "anchor2": ["N1", "N2", "N3", "C7", "C8"],
