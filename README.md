@@ -57,7 +57,7 @@ The settings file for this step should be created by the user. Two example are p
 - `output_dir`: Path to the folder to store the parameter calculations and minimization.
 - `input_pdb_dir`: Input `pdb` file of the target molecule structure.
 
-### Step 3: Free energy calculations
+### Step 3: Enhanced sampling calculations
 
 The settings file for this step should be created by the user. An example is provided in `example/system_settings.JSON`. The mandatory entries are:
 
@@ -68,8 +68,8 @@ The settings file for this step should be created by the user. An example is pro
 - `box_size`: Size of the simulation box. Cubic periodic.
 - `complex_output_dir`: Path to the out directory for the free energy calculations. The contents of this directory will be as follows:
 
-```
-output_folder_name/
+``` bash
+{PCC sequence}_{target name}/
 │-- em/               # Minimization
 │-- nvt/              # NVT equilibration
 │-- npt/              # NPT equilibration
@@ -87,6 +87,10 @@ The optional entries are:
 - `postprocess_settings`: Parameters for the post-processing and free energy calculations.
   - `discard_initial`: Initial duration of the PBMetaD simulation to discard for free energy calculations in ns. Defaults to 100 ns.
   - `n_folds`: Number of folds for block-analysis and uncertainty quantification. Defaults to 5.
+
+### Step 4: Free energy calculation
+
+This step does not require a separate settings file as the parameters are set by the settings file in step 3. The post-processing step calculates the 3D integral of the bound basin and the unbound region and reports $\Delta G$ of binding in kJ/mol and $K_d$ in $\mu M$. The report is created in `complex_output_dir/{PCC sequence}_{target name}/metadata.JSON`.
 
 ---
 
