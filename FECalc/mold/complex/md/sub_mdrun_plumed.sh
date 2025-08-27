@@ -4,10 +4,8 @@
 #SBATCH --output=R_%x_%j.out
 
 # name of partition to queue on
-##SBATCH --account=pi-andrewferguson
-##SBATCH --partition=andrewferguson-gpu
-#SBATCH --partition=gm4-pmext
-#SBATCH --qos=gm4
+#SBATCH --partition=
+#SBATCH --qos=
 
 # max wall time for job (HH:MM:SS)
 #SBATCH --time=1-12:00:00
@@ -33,7 +31,7 @@ NP=$(($NCPU * $NNOD * $NTHR))
 module unload openmpi gcc cuda python
 module load openmpi/4.1.1+gcc-10.1.0 cuda/11.2
 
-source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2-256/bin/GMXRC
+source /path/to/gromacs/bin/GMXRC
 
 if [ -f ./md.cpt ]; then
     echo "Restarting previous run..."

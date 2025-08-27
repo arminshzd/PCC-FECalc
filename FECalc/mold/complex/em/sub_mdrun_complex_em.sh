@@ -4,10 +4,8 @@
 #SBATCH --output=R_%x_%j.out
 
 # name of partition to queue on
-##SBATCH --account=pi-andrewferguson
-##SBATCH --partition=andrewferguson-gpu
-#SBATCH --partition=gm4-pmext
-#SBATCH --qos=gm4
+#SBATCH --partition=
+#SBATCH --qos=
 
 # max wall time for job (HH:MM:SS)
 #SBATCH --time=1-12:00:00
@@ -33,14 +31,14 @@ NP=$(($NCPU * $NNOD * $NTHR))
 module unload openmpi gcc cuda python
 module load openmpi/4.1.1+gcc-10.1.0 cuda/11.2
 
-source /project/andrewferguson/armin/grom_new/gromacs-2021.6/installed-files-mw2-256/bin/GMXRC
+source /path/to/gromacs/bin/GMXRC
 
 ## Create box
-gmx editconf -f complex.pdb -o complex_box.gro -c -bt cubic -box 5
+gmx editconf -f complex.pdb -o complex_box.gro -c -bt cubic -box "$1"
 ## Solvate
 gmx solvate -cp complex_box.gro -cs spc216.gro -o complex_sol.gro -p topol.top
 ## Neutralize
-CHARGE=$1
+CHARGE=$2
 echo "System total charge: $CHARGE"
 if [ $CHARGE -ne 0 ]
 then

@@ -35,7 +35,7 @@ class FECalc():
     The complex box is then solvated and equilibrated and the free energy surface is calculated
     using `PBMetaD`.
     """
-    def __init__(self, pcc, target, base_dir: Path, temp: float, **kwargs) -> None:
+    def __init__(self, pcc, target, base_dir: Path, temp: float, box:float, **kwargs) -> None:
         """
         Setup the base, PCC, and complex directories, and locate the target molecule files.
     
@@ -44,6 +44,8 @@ class FECalc():
             target (TargetMol): Target molecule for FE calculations.
             base_dir (Path): directory to store the calculations
             script_dir (Path): directory containing necessary scripts and templates
+            temp (float): Temperature of the simulations
+            box (float): Size of the simulation box
 
         Raises:
             ValueError: Raises Value error if `base_dir` is not a directory.
@@ -79,25 +81,13 @@ class FECalc():
         self.MOL_list_atom = [] # list of MOL atom names (str)
         self.PCC_list_atom = [] # list of PCC atom names (str)
         self.T = float(temp)
-        self.KbT = self.T * 8.314 # System temperature in J/mol
+        self.box_size = float(kwargs.get("box", 5.0))
 
         # MetaD setup
+        self.n_steps = int(kwargs.get("n_steps", 400000000))
         self.metad_height = float(kwargs.get("metad_height", 3.0))
         self.metad_pace = int(kwargs.get("metad_pace", 500))
         self.metad_bias_factor = float(kwargs.get("metad_bias_factor", 20))
-
-    def _write_report(self):
-        report = {
-            "PCC": self.PCC_code,
-            "Target": self.target,
-            "FE": self.free_e,
-            "FE_error": self.free_e_err,
-            "K": self.K,
-            "K_err": self.K_err
-        }
-        with open(self.base_dir/"metadata.JSON", 'w') as f:
-            json.dump(report, f, indent=3)
-        return None
     
     def _check_done(self, stage: str) -> bool:
         """
@@ -208,7 +198,16 @@ class FECalc():
                 f.write(f"\t{i}\t1\t1000\t1000\t1000\n")
         return None
     
-    def update_temperature(self, mdp_in, mdp_out):
+    def update_mdp(self, mdp_in, mdp_out, n_steps=None):
+        """
+        Update the mdp files with the correct temperature and if necessary 
+        number of steps
+
+        Args:
+            mdp_in (Path): Path to the tempelate
+            mdp_out (Path): Path to the output file
+            n_steps (int, optional): Number of steps for the simulation. Defaults to None.
+        """
         lines = []
         with open(mdp_in, 'r') as f:
             for line in f:
@@ -216,6 +215,9 @@ class FECalc():
                     line = f'ref_t              = {self.T}     {self.T}\n'
                 elif line.strip().startswith('gen_temp'):
                     line = f'gen_temp           = {self.T}\n'
+                elif line.strip().startswith('nsteps'):
+                    if n_steps:
+                        line = f'nsteps           = {self.n_steps}\n'
                 lines.append(line)
 
         with open(mdp_out, 'w') as f:
@@ -281,7 +283,7 @@ class FECalc():
                 subprocess.run(f"cp {self.mold_dir}/complex/em/em.mdp .", shell=True, check=True)
                 subprocess.run(f"cp {self.mold_dir}/complex/em/sub_mdrun_complex_em.sh .", shell=True) # copy mdrun submission script
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.pcc.charge}", check=True, shell=True)
+                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.box_size} {self.pcc.charge}", check=True, shell=True)
             self._set_done(self.complex_dir/'em')
 
         if not self.MOL_list:
@@ -307,7 +309,7 @@ class FECalc():
                 else:
                     subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt_nions.mdp ./nvt_temp.mdp", shell=True, check=True)
                 # set temperature
-                self.update_temperature("./nvt_temp.mdp", "./nvt.mdp")
+                self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # submit nvt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
@@ -332,7 +334,7 @@ class FECalc():
                 else:
                     subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_nions.mdp ./npt_temp.mdp", shell=True, check=True)
                 # set temperature
-                self.update_temperature("./npt_temp.mdp", "./npt.mdp")
+                self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # submit npt job
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
@@ -477,8 +479,8 @@ class FECalc():
                     subprocess.run(f"cp {self.mold_dir}/complex/md/md.mdp ./md_temp.mdp", shell=True, check=True)
                 else:
                     subprocess.run(f"cp {self.mold_dir}/complex/md/md_nions.mdp ./md_temp.mdp", shell=True, check=True)
-                # set temperature
-                self.update_temperature("./md_temp.mdp", "./md.mdp")
+                # set temperature and n_steps
+                self.update_mdp("./md_temp.mdp", "./md.mdp", self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
                 
             # submit pbmetad job. Resubmits until either the job fails 10 times or it succesfully finishes.
