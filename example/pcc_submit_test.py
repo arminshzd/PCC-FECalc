@@ -15,6 +15,7 @@ PCC_output = Path(settings["PCC_output_dir"])
 PCC_settings = Path(settings["PCC_settings_json"])
 MOL_settings = Path(settings["MOL_settings_json"])
 temperature = float(settings["temperature"])
+box_size = float(settings["box_size"])
 metad_settings = dict(settings["metad_settings"]) if \
     settings.get("metad_settings", None) is not None else dict()
 postprocess_settings = dict(settings["postprocess_settings"]) if \
@@ -25,7 +26,7 @@ PCC.create()
 MOL = TargetMOL(MOL_settings)
 MOL.create()
 complex_output = Path(settings["complex_output_dir"])/f"{PCC.PCC_code}_{MOL.name}"
-calculator = FECalc(PCC, MOL, complex_output, temperature, **metad_settings)
+calculator = FECalc(PCC, MOL, complex_output, temperature, box_size, **metad_settings)
 now = datetime.now()
 now = now.strftime("%m/%d/%Y, %H:%M:%S")
 print(f"Starting {PCC.PCC_code}_{MOL.name} run.")

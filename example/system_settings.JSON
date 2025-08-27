@@ -4,7 +4,9 @@
     "MOL_settings_json": "./FEN_settings.JSON",
     "complex_output_dir": "./HTVS_test/DATA",
     "temperature": 300,
+    "box_size": 5.0,
     "metad_settings": {
+        "n_steps": 400000000,
         "metad_height": 3.0,
         "metad_pace": 500,
         "metad_bias_factor": 20
