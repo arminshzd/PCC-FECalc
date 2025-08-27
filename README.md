@@ -22,7 +22,7 @@ The framework is organized into four main submodules that work in serial to perf
 ### Clone the repository
 
 ``` bash
-    git clone https://github.com/arminshzd/PCC-FEcalc/tree/TargetMOL
+    git clone https://github.com/arminshzd/PCC-FECalc.git
     cd PCC-FECalc
 ```
 
