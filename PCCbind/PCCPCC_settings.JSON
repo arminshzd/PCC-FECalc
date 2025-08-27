@@ -1,9 +1,0 @@
-{
-    "PCC_source": "/scratch/midway2/arminsh/PCC_DB",
-    "num_umbrellas": 20,
-    "max_distance": 4.0,
-    "spring_constant": 150,
-    "T": 300,
-    "partition": "gm4",
-    "accl": "gpu"
-}

@@ -1,4 +1,0 @@
-{
-    "pymol_dir": "module load pymol && pymol",
-    "acpype_dir": "/scratch/midway2/arminsh/envs/acpype"
-}
