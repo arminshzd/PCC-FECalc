@@ -1,13 +1,8 @@
 import os
 import re
 import subprocess
-import json
 from pathlib import Path
 from datetime import datetime
-
-import numpy as np
-import pandas as pd
-from scipy.integrate import simpson
 
 from .GMXitp.GMXitp import GMXitp
 
