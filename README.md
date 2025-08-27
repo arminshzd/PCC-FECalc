@@ -68,12 +68,14 @@ The settings file for this step should be created by the user. An example is pro
 - `box_size`: Size of the simulation box. Cubic periodic.
 - `complex_output_dir`: Path to the out directory for the free energy calculations. The contents of this directory will be as follows:
 
+```
 output_folder_name/
 │-- em/               # Minimization
 │-- nvt/              # NVT equilibration
 │-- npt/              # NPT equilibration
 │-- md/               # PBMetaD simulation
 │-- reweight/         # Reweighting
+```
 
 The optional entries are:
 
