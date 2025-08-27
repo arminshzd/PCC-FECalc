@@ -4,8 +4,6 @@
 #SBATCH --output=R_%x_%j.out
 
 # name of partition to queue on
-##SBATCH --account=pi-andrewferguson
-##SBATCH --partition=andrewferguson
 #SBATCH --partition=gm4-pmext
 #SBATCH --qos=gm4-cpu
 
@@ -20,6 +18,6 @@
 #SBATCH --cpus-per-task=20
 
 module load python/anaconda-2021.05
-source activate /scratch/midway2/arminsh/envs/acpype
+source activate path/to/env/acpype
 
 acpype -i $1.pdb -b $2 -c bcc -n $3 -a gaff2
