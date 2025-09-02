@@ -111,7 +111,7 @@ class PCCBuilder():
         subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
 	    # pre-optimization
         wait_str = " --wait "
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_preopt.sh {self.PCC_dir}", shell=True) # copy preopt submission script
+        subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_preopt.sh", f"{self.PCC_dir}"], check=True) # copy preopt submission script
         with cd(self.PCC_dir): # cd into the PCC directory
             # pre-optimize to deal with possible clashes created while changing residues to D-AAs
             print("Pre-optimizing: ", flush=True)
@@ -144,7 +144,7 @@ class PCCBuilder():
             None
         """
         
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.PCC_dir}", shell=True) # copy acpype submission script
+        subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_acpype.sh", f"{self.PCC_dir}"], check=True) # copy acpype submission script
 
         wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting        
         with cd(self.PCC_dir): # cd into the PCC directory
@@ -178,13 +178,13 @@ class PCCBuilder():
         Path.mkdir(self.PCC_dir/"em", exist_ok=True)
         with cd(self.PCC_dir/"em"): # cd into PCC/em
             # copy acpype files into em dir
-            subprocess.run("cp ../PCC.acpype/PCC_GMX.gro .", shell=True, check=True)
-            subprocess.run("cp ../PCC.acpype/PCC_GMX.itp .", shell=True, check=True)
-            subprocess.run("cp ../PCC.acpype/posre_PCC.itp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/topol.top .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/ions.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/em.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/sub_mdrun_em.sh .", shell=True) # copy mdrun submission script
+            subprocess.run(["cp", "../PCC.acpype/PCC_GMX.gro", "."], check=True)
+            subprocess.run(["cp", "../PCC.acpype/PCC_GMX.itp", "."], check=True)
+            subprocess.run(["cp", "../PCC.acpype/posre_PCC.itp", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/topol.top", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/sub_mdrun_em.sh", "."], check=True) # copy mdrun submission script
             # set self.n_atoms
             self._get_n_atoms("./PCC_GMX.gro")
             # submit em job
