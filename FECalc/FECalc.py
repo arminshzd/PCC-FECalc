@@ -68,7 +68,6 @@ class FECalc():
         self.target_dir = self.target.base_dir/"export"
 
         self.PCC_charge = self.pcc.charge
-        self.PCC_n_atoms = self.pcc.n_atoms
         self.MOL_list = [] # list of MOL atom ids (str)
         self.PCC_list = [] # list of PCC atom ids (str)
         self.MOL_list_atom = [] # list of MOL atom names (str)
