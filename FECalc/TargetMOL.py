@@ -103,7 +103,7 @@ class TargetMOL():
             f"cp {self.input_pdb_dir} {self.base_dir}/MOL.pdb", shell=True, check=True
         )
         # Copy acpype submission script
-        subprocess.run(f"cp {self.mold_dir}/PCC/sub_acpype.sh {self.base_dir}", shell=True)
+        subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_acpype.sh", f"{self.base_dir}"], check=True)
 
         # whether to wait for acpype to finish before exiting
         wait_str = " --wait " if wait else ""
@@ -138,13 +138,13 @@ class TargetMOL():
         Path.mkdir(self.base_dir/"em", exist_ok=True)
         with cd(self.base_dir/"em"): # cd into em
             # copy acpype files into em dir
-            subprocess.run("cp ../MOL.acpype/MOL_GMX.gro .", shell=True, check=True)
-            subprocess.run("cp ../MOL.acpype/MOL_GMX.itp .", shell=True, check=True)
-            subprocess.run("cp ../MOL.acpype/posre_MOL.itp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/topol.top .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/ions.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/em.mdp .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/PCC/em/sub_mdrun_em.sh .", shell=True) # copy mdrun submission script
+            subprocess.run(["cp", "../MOL.acpype/MOL_GMX.gro", "."], check=True)
+            subprocess.run(["cp", "../MOL.acpype/MOL_GMX.itp", "."], check=True)
+            subprocess.run(["cp", "../MOL.acpype/posre_MOL.itp", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/topol.top", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/sub_mdrun_em.sh", "."], check=True) # copy mdrun submission script
             # fix topol.top
             subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
             # submit em job
@@ -157,9 +157,9 @@ class TargetMOL():
     def _export(self):
         Path.mkdir(self.base_dir/"export", exist_ok=True)
         with cd(self.base_dir/"export"): # cd into export
-            subprocess.run("cp ../em/MOL_GMX.itp ./MOL.itp", shell=True, check=True)
-            subprocess.run("cp ../em/posre_MOL.itp .", shell=True, check=True)
-            subprocess.run("cp ../em/MOL_em.pdb ./MOL.pdb", shell=True, check=True)
+            subprocess.run(["cp", "../em/MOL_GMX.itp", "./MOL.itp"], check=True)
+            subprocess.run(["cp", "../em/posre_MOL.itp", "."], check=True)
+            subprocess.run(["cp", "../em/MOL_em.pdb", "./MOL.pdb"], check=True)
         self._set_done(self.base_dir/"export")
 
     def create(self) -> None:
