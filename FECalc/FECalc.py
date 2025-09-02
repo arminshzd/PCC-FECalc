@@ -30,7 +30,7 @@ class FECalc():
     The complex box is then solvated and equilibrated and the free energy surface is calculated
     using `PBMetaD`.
     """
-    def __init__(self, pcc, target, base_dir: Path, temp: float, box:float, **kwargs) -> None:
+    def __init__(self, pcc, target, base_dir: Path, temp: float, box: float, **kwargs) -> None:
         """
         Setup the base, PCC, and complex directories, and locate the target molecule files.
     
@@ -77,7 +77,7 @@ class FECalc():
         self.PCC_list_atom = [] # list of PCC atom names (str)
         self.T = float(temp)
         self.KbT = 8.314 * self.T
-        self.box_size = float(kwargs.get("box", 5.0))
+        self.box_size = float(box)
 
         # MetaD setup
         self.n_steps = int(kwargs.get("n_steps", 400000000))
