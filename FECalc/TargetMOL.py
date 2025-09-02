@@ -33,11 +33,13 @@ class TargetMOL():
         output_dir = self.settings.get("output_dir")
         if not output_dir:
             raise ValueError("'output_dir' must be specified and cannot be empty.")
-        self.base_dir = Path(output_dir)  # base directory to store files
-        if not self.base_dir.exists() or not self.base_dir.is_dir():
+        self.output_dir = Path(output_dir)
+        if self.output_dir.exists() and not self.output_dir.is_dir():
             raise ValueError(
-                f"Output directory '{self.base_dir}' does not exist or is not a directory."
+                f"Output path '{self.output_dir}' exists and is not a directory."
             )
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir = self.output_dir  # backwards compatibility
 
         input_pdb_dir = self.settings.get("input_pdb_dir")
         if not input_pdb_dir:
