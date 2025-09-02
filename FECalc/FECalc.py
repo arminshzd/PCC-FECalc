@@ -84,39 +84,38 @@ class FECalc():
         self.metad_pace = int(kwargs.get("metad_pace", 500))
         self.metad_bias_factor = float(kwargs.get("metad_bias_factor", 20))
     
-    def _check_done(self, stage: str) -> bool:
+    def _check_done(self, stage: Path) -> bool:
         """
-        Check if calculation has been performed already
+        Check if a calculation stage has already been performed.
+
         Args:
-            stage (str): calculation stage to check
+            stage (Path): Directory for the calculation stage.
 
         Returns:
-            bool: True if done, False otherwise
+            bool: True if the stage has a ".done" file, False otherwise.
         """
-        try:
-            with cd(self.base_dir/stage):
-                done_dir = self.base_dir/stage/".done"
-                if done_dir.exists():
-                    return True
-                else:
-                    return False
-        except:
-            return False
-    
-    def _set_done(self, stage: str) -> None:
+        stage_path = Path(stage)
+        if not stage_path.is_absolute():
+            stage_path = self.base_dir / stage_path
+        done_file = stage_path / ".done"
+        return done_file.exists()
+
+    def _set_done(self, stage: Path) -> None:
         """
-        create an empty file ".done" in the stage directory to mark is has been performed already.
+        Create an empty ".done" file in the stage directory to mark it as completed.
 
         Args:
-            stage (str): stage to set as done
+            stage (Path): Directory for the completed stage.
 
         Returns:
             None
         """
-        with cd(self.base_dir/stage):
-            done_dir = self.base_dir/stage/".done"
-            with open(done_dir, 'w') as f:
-                f.writelines([""])
+        stage_path = Path(stage)
+        if not stage_path.is_absolute():
+            stage_path = self.base_dir / stage_path
+        stage_path.mkdir(parents=True, exist_ok=True)
+        done_file = stage_path / ".done"
+        done_file.touch()
         return None
     
     def _get_atom_ids(self, gro_file: Path) -> None:
