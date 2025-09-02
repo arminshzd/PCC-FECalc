@@ -27,24 +27,32 @@ class TargetMOL():
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Building and minimizing structure for {self.name} (PID: {os.getpid()})")
         
-        self.script_dir = Path(__file__).parent/Path("scripts")
-        self.mold_dir = Path(__file__).parent/Path("mold")
+        self.script_dir = Path(__file__).parent / Path("scripts")
+        self.mold_dir = Path(__file__).parent / Path("mold")
 
-        self.base_dir = Path(self.settings['output_dir']) # base directory to store files
-        if self.base_dir.exists():
-            if not self.base_dir.is_dir():
-                raise ValueError(f"{self.base_dir} is not a directory.")
-        else:
-            now = datetime.now()
-            now = now.strftime("%m/%d/%Y, %H:%M:%S")
-            print(f"{now}: Base directory does not exist. Creating...")
-            self.base_dir.mkdir()
+        output_dir = self.settings.get("output_dir")
+        if not output_dir:
+            raise ValueError("'output_dir' must be specified and cannot be empty.")
+        self.output_dir = Path(output_dir)
+        if self.output_dir.exists() and not self.output_dir.is_dir():
+            raise ValueError(
+                f"Output path '{self.output_dir}' exists and is not a directory."
+            )
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.base_dir = self.output_dir  # backwards compatibility
+
+        input_pdb_dir = self.settings.get("input_pdb_dir")
+        if not input_pdb_dir:
+            raise ValueError("'input_pdb_dir' must be specified and cannot be empty.")
+        self.input_pdb_dir = Path(input_pdb_dir)
+        if not self.input_pdb_dir.exists() or not self.input_pdb_dir.is_file():
+            raise ValueError(
+                f"Input PDB file '{self.input_pdb_dir}' does not exist or is not a file."
+            )
 
         self.charge = int(self.settings.get("charge", 0))
         self.anchor_point1 = self.settings["anchor1"]
         self.anchor_point2 = self.settings["anchor2"]
-        self.input_pdb_dir = Path(self.settings["input_pdb_dir"]) if \
-            self.settings.get("input_pdb_dir", None) is not None else None
 
     def _check_done(self, stage: Path) -> bool:
         """
@@ -80,17 +88,6 @@ class TargetMOL():
         done_file.touch()
         return None
     
-    def _get_n_atoms(self, gro_dir: Path) -> None:
-        """
-        Get the number of MOL atoms from gro file
-
-        Args:
-            gro_dir (Path): path to MOL.gro file.
-        """
-        with open(gro_dir) as f:
-            gro_cnt = f.readlines()
-        self.MOL_n_atoms = int(gro_cnt[1].split()[0])
-    
     def _get_params(self, wait: bool = True) -> None: 
         """
         Run acpype on the MOL pdb file. Submits a job to the cluster.
@@ -102,10 +99,9 @@ class TargetMOL():
             None
         """
         # copy the input pdb to working dir
-        if self.input_pdb_dir is not None:
-            subprocess.run(["cp", f"{self.input_pdb_dir}", f"{self.base_dir}/MOL.pdb"], check=True)
-        else:
-            raise RuntimeError("Input pdb for calculations was not specified in the settings file.")
+        subprocess.run(
+            f"cp {self.input_pdb_dir} {self.base_dir}/MOL.pdb", shell=True, check=True
+        )
         # Copy acpype submission script
         subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_acpype.sh", f"{self.base_dir}"], check=True)
 
@@ -151,8 +147,6 @@ class TargetMOL():
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/sub_mdrun_em.sh", "."], check=True) # copy mdrun submission script
             # fix topol.top
             subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
-            # set self.MOL_n_atoms
-            #self._get_n_atoms("./PCC_GMX.gro")
             # submit em job
             wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
             subprocess.run(f"sbatch -J MOL{wait_str}sub_mdrun_em.sh MOL {self.charge}", check=True, shell=True)

@@ -1,7 +1,6 @@
 import re
 import json
 from pathlib import Path
-import subprocess
 import numpy as np
 import pandas as pd
 from scipy.integrate import simpson
@@ -28,8 +27,22 @@ def _load_plumed(fname, KbT):
     return data
 
 def _get_box_size(gro_fname):
-    out = subprocess.run(f"tail -n 1 {gro_fname}", shell=True, capture_output=True)
-    return float(out.stdout.split()[0])
+    """Extract the box edge length from a GROMACS ``.gro`` file.
+
+    Parameters
+    ----------
+    gro_fname : Path or str
+        Path to the ``.gro`` structure file.
+
+    Returns
+    -------
+    float
+        The box edge length in nanometers.
+    """
+    with open(gro_fname, "r") as f:
+        for line in f:
+            pass
+    return float(line.split()[0])
 
 
 def _block_anal_3d(x, y, z, weights, KbT, nbins, folds):

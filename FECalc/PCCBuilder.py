@@ -109,7 +109,9 @@ class PCCBuilder():
         numres = len(pcc_translate) # number of residues
         mutation = "".join(pcc_translate) # concatenate the 3 letter codes
         subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
-	    # pre-optimization
+        _, _, coords = _read_pdb(self.PCC_dir/f"{self.PCC_code}.pdb")
+        self.n_atoms = coords.shape[0]
+        # pre-optimization
         wait_str = " --wait "
         subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_preopt.sh", f"{self.PCC_dir}"], check=True) # copy preopt submission script
         with cd(self.PCC_dir): # cd into the PCC directory
@@ -122,18 +124,7 @@ class PCCBuilder():
         self._set_done(self.PCC_dir) # mark stage as done
         return None
     
-    def _get_n_atoms(self, gro_dir: Path) -> None:
-        """
-        Get the number of PCC atoms from gro file
-
-        Args:
-            gro_dir (Path): path to PCC.gro file.
-        """
-        with open(gro_dir) as f:
-            gro_cnt = f.readlines()
-        self.n_atoms = int(gro_cnt[1].split()[0])
- 
-    def _get_params(self, wait: bool = True) -> None: 
+    def _get_params(self, wait: bool = True) -> None:
         """
         Run acpype on the mutated `PCC.pdb` file. Submits a job to the cluster.
 
@@ -185,8 +176,6 @@ class PCCBuilder():
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/sub_mdrun_em.sh", "."], check=True) # copy mdrun submission script
-            # set self.n_atoms
-            self._get_n_atoms("./PCC_GMX.gro")
             # submit em job
             wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
             subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_em.sh PCC {self.charge}", check=True, shell=True)
