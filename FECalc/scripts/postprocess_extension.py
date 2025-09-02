@@ -138,8 +138,7 @@ def _calc_FE(ifdir) -> None:
     colvars1 = _load_plumed(ifdir/"reweight"/"COLVAR") # read colvars
     init_time = 100 # ns
     print(f"INFO: Discarding initial {init_time} ns of data for free energy calculations.")
-    init_idx = int(init_time * 10000 // 2)
-    colvars1 = colvars1.iloc[init_idx:] # discard the first 100 ns of data
+    colvars1 = colvars1[colvars1['time'] >= init_time * 1000]  # discard the first `init_time` ns of data
     colvars2 = _load_plumed(ifdir/"reweight_extend"/"COLVAR") # read colvars
     colvars = pd.concat([colvars1, colvars2], axis=0)
     # block analysis
@@ -161,13 +160,16 @@ def _calc_FE(ifdir) -> None:
             unbound_data.rename(columns={i: 'F'}, inplace=True)
             unbound_data.dropna(inplace=True)
             f_list.append(_calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))
-        except:
+        except (KeyError, ValueError) as e:
+            print(f"ERROR: {e}")
             discarded_blocks += 1
             continue
     
     if discarded_blocks != 0:
         print(f"WARNING: {discarded_blocks} block(s) were discarded from the calculations possibly because the system was"\
                 " stuck in a bound state for longer than 100 ns consecutively. Check the colvar trajectories.")
+    if not f_list:
+        raise ValueError("No free energy values could be calculated; f_list is empty.")
     f_list = np.array(f_list)
     return np.nanmean(f_list), np.nanstd(f_list)/np.sqrt(len(f_list)-np.count_nonzero(np.isnan(f_list)))
     
