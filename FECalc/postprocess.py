@@ -201,15 +201,16 @@ def postprocess(fecalc, **kwargs) -> None:
         _write_report(fecalc.pcc.PCC_code, fecalc.target.name, ofname, free_e, free_e_err, K, K_err)
         return None
 
-def postprocess_wrapper(PCC, target, ifdir, KbT, init_time, n_folds, box_size) -> None:
+def postprocess_wrapper(PCC, target, ifdir, temperature, init_time, n_folds, box_size) -> None:
+    KbT = 8.314 * float(temperature)
     # calc FE
     ifdir = Path(ifdir)
     ifdir = ifdir/"complex"
     ofname = ifdir.parent/"metadata.JSON"
     if not (ofname).exists():
-        free_e, free_e_err = _calc_FE(ifdir, KbT, init_time, n_folds)
+        free_e, free_e_err = _calc_FE(ifdir, KbT, float(init_time), int(n_folds))
         # calculate Ks
-        K, K_err = _calc_K(free_e, free_e_err, KbT, box_size)
+        K, K_err = _calc_K(free_e, free_e_err, KbT, float(box_size))
         # write report
         _write_report(PCC, target, ofname, free_e, free_e_err, K, K_err)
     return None
@@ -221,13 +222,12 @@ if __name__=="__main__":
     parser.add_argument('PCC', type=str, help="PCC name")
     parser.add_argument('target', type=str, help="target name")
     parser.add_argument('input', type=str, help="input files directory")
-    parser.add_argument('temperature', type=str, help="simulation temperature")
-    parser.add_argument('box_edge', type=str, help="simulation box edge size (nm)")
-    parser.add_argument('init_time', type=str, help="simulation length to discard from the begining of the traj")
-    parser.add_argument('block_size', type=str, help="block analysis block size")
+    parser.add_argument('temperature', type=float, help="simulation temperature")
+    parser.add_argument('box_edge', type=float, help="simulation box edge size (nm)")
+    parser.add_argument('init_time', type=float, help="simulation length to discard from the begining of the traj")
+    parser.add_argument('block_size', type=int, help="block analysis block size")
 
     args = parser.parse_args()
 
-    KbT = 8.314*args.temperature
-    postprocess_wrapper(args.PCC, args.target, args.input, KbT, args.init_time, 
-                        args.block_size, args.box_size)
+    postprocess_wrapper(args.PCC, args.target, args.input, args.temperature, args.init_time,
+                        args.block_size, args.box_edge)

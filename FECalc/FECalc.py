@@ -76,6 +76,7 @@ class FECalc():
         self.MOL_list_atom = [] # list of MOL atom names (str)
         self.PCC_list_atom = [] # list of PCC atom names (str)
         self.T = float(temp)
+        self.KbT = 8.314 * self.T
         self.box_size = float(box)
 
         # MetaD setup
@@ -195,13 +196,13 @@ class FECalc():
     
     def update_mdp(self, mdp_in, mdp_out, n_steps=None):
         """
-        Update the mdp files with the correct temperature and if necessary 
-        number of steps
+        Update the mdp files with the correct temperature and optionally the number of steps.
 
         Args:
             mdp_in (Path): Path to the tempelate
             mdp_out (Path): Path to the output file
-            n_steps (int, optional): Number of steps for the simulation. Defaults to None.
+            n_steps (int, optional): Number of steps to set in the output. If ``None`` the
+                steps value in the template is kept unchanged.
         """
         lines = []
         with open(mdp_in, 'r') as f:
@@ -210,9 +211,8 @@ class FECalc():
                     line = f'ref_t              = {self.T}     {self.T}\n'
                 elif line.strip().startswith('gen_temp'):
                     line = f'gen_temp           = {self.T}\n'
-                elif line.strip().startswith('nsteps'):
-                    if n_steps:
-                        line = f'nsteps           = {self.n_steps}\n'
+                elif line.strip().startswith('nsteps') and n_steps is not None:
+                    line = f'nsteps           = {n_steps}\n'
                 lines.append(line)
 
         with open(mdp_out, 'w') as f:
@@ -474,8 +474,8 @@ class FECalc():
                     subprocess.run(f"cp {self.mold_dir}/complex/md/md.mdp ./md_temp.mdp", shell=True, check=True)
                 else:
                     subprocess.run(f"cp {self.mold_dir}/complex/md/md_nions.mdp ./md_temp.mdp", shell=True, check=True)
-                # set temperature and n_steps
-                self.update_mdp("./md_temp.mdp", "./md.mdp", self.n_steps)
+                # set temperature and, if requested, the number of steps
+                self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
                 
             # submit pbmetad job. Resubmits until either the job fails 10 times or it succesfully finishes.
@@ -541,10 +541,15 @@ class FECalc():
         self._set_done(self.complex_dir/'reweight')
         return None
 
-    def run(self) -> tuple:
-        """Wrapper for FE caclculations. Create PCC, call acpype, 
+    def run(self, n_steps=None) -> tuple:
+        """Wrapper for FE calculations. Create PCC, call acpype,
         minimize, create complex, and run PBMetaD.
+
+        Args:
+            n_steps (int, optional): Override the number of PBMetaD simulation steps.
         """
+        if n_steps is not None:
+            self.n_steps = n_steps
         # create the complex
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
