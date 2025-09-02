@@ -73,6 +73,7 @@ def _prep_pdb(in_f_dir: Path, out_f_dir: Path, resname: str) -> None:
 
 class cd:
     """Context manager for changing the current working directory"""
+
     def __init__(self, newPath):
         self.newPath = Path(newPath)
 
@@ -80,8 +81,8 @@ class cd:
         self.savedPath = Path.cwd()
         try:
             os.chdir(self.newPath)
-        except:
-            raise ValueError("Path does not exist.")
+        except (FileNotFoundError, NotADirectoryError) as e:
+            raise ValueError("Path does not exist.") from e
 
     def __exit__(self, etype, value, traceback):
         os.chdir(self.savedPath)

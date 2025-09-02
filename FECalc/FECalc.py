@@ -5,21 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .GMXitp.GMXitp import GMXitp
-
-class cd:
-    """Context manager for changing the current working directory"""
-    def __init__(self, newPath):
-        self.newPath = Path(newPath)
-
-    def __enter__(self):
-        self.savedPath = Path.cwd()
-        try:
-            os.chdir(self.newPath)
-        except (FileNotFoundError, NotADirectoryError) as e:
-            raise ValueError("Path does not exist.") from e
-
-    def __exit__(self, etype, value, traceback):
-        os.chdir(self.savedPath)
+from .utils import cd
 
 class FECalc():
     """
