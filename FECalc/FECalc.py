@@ -15,8 +15,8 @@ class cd:
         self.savedPath = Path.cwd()
         try:
             os.chdir(self.newPath)
-        except:
-            raise ValueError("Path does not exist.")
+        except (FileNotFoundError, NotADirectoryError) as e:
+            raise ValueError("Path does not exist.") from e
 
     def __exit__(self, etype, value, traceback):
         os.chdir(self.savedPath)
@@ -477,33 +477,40 @@ class FECalc():
                 self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
                 
-            # submit pbmetad job. Resubmits until either the job fails 10 times or it succesfully finishes.
-            cnt = 1
-            try:
-                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
-                if not Path.exists(self.complex_dir/"md"/"md.gro"): # making sure except block is executed if the run is not complete, regardless of system exit code
-                    raise RuntimeError("Run not completed.")
-            except:
-                fail_flag = True
-                while fail_flag:
-                    try:
-                        cnt += 1
-                        subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{cnt}", shell=True, check=False)
-                        subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{cnt}", shell=True, check=False)
-                        subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{cnt}", shell=True, check=False)
-                        subprocess.run(["cp", f"./GRID_ang", f"./GRID_ang.bck.{cnt}"], check=False)
-                        subprocess.run(["cp", f"./GRID_cos", f"./GRID_cos.bck.{cnt}"], check=False)
-                        subprocess.run(["cp", f"./GRID_COM", f"./GRID_COM.bck.{cnt}"], check=False)
-                        subprocess.run(["cp", f"./md.cpt", f"./md.cpt.bck.{cnt}"], check=False)
-                        now = datetime.now()
-                        now = now.strftime("%m/%d/%Y, %H:%M:%S")
-                        print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
-                        subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
+            # submit pbmetad job with limited retries
+            max_attempts = 5
+            attempt = 0
+            while attempt < max_attempts:
+                if attempt > 0:
+                    subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{attempt}", shell=True, check=False)
+                    subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{attempt}", shell=True, check=False)
+                    subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{attempt}", shell=True, check=False)
+                    subprocess.run(["cp", f"./GRID_ang", f"./GRID_ang.bck.{cnt}"], check=False)
+                    subprocess.run(["cp", f"./GRID_cos", f"./GRID_cos.bck.{cnt}"], check=False)
+                    subprocess.run(["cp", f"./GRID_COM", f"./GRID_COM.bck.{cnt}"], check=False)
+                    subprocess.run(f"cp ./md.cpt ./md.cpt.bck.{attempt}", shell=True, check=False)
+                    now = datetime.now()
+                    now = now.strftime("%m/%d/%Y, %H:%M:%S")
+                    print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
+                try:
+                    subprocess.run(
+                        f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh",
+                        check=True,
+                        shell=True,
+                    )
+                    if attempt > 0:
                         print()
-                        fail_flag = False
-                    except:
-                        if cnt >= 5:
-                            raise RuntimeError("PBMetaD run failed more than 5 times. Stopping.")
+                    break
+                except subprocess.CalledProcessError as e:
+                    attempt += 1
+                    if attempt >= max_attempts:
+                        raise RuntimeError(
+                            f"PBMetaD run failed after {max_attempts} attempts: {e}"
+                        ) from e
+
+            # ensure workflow completed successfully
+            if not Path.exists(self.complex_dir/"md"/"md.gro"):
+                raise RuntimeError("Run not completed.")
     
         self._set_done(self.complex_dir/'md')
         return None
