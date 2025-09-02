@@ -26,7 +26,7 @@ PCC.create()
 MOL = TargetMOL(MOL_settings)
 MOL.create()
 complex_output = Path(settings["complex_output_dir"])/f"{PCC.PCC_code}_{MOL.name}"
-calculator = FECalc(PCC, MOL, complex_output, temperature, box_size, **metad_settings)
+calculator = FECalc(PCC, MOL, complex_output, temperature, box=box_size, **metad_settings)
 now = datetime.now()
 now = now.strftime("%m/%d/%Y, %H:%M:%S")
 print(f"Starting {PCC.PCC_code}_{MOL.name} run.")
