@@ -284,6 +284,9 @@ class FECalc():
             with cd(self.complex_dir/"em"): # cd into complex/em
                 # update atom ids
                 self._get_atom_ids("./em.gro")
+            # regenerate posre files with updated atom ids
+            with cd(self.complex_dir):
+                self._fix_posre()
         ## NVT
         if not self._check_done(self.complex_dir/"nvt"):
             # create complex/nvt dir
