@@ -182,8 +182,7 @@ class TargetMOL():
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
             print(f"{now}: Exporting files: ", end="", flush=True)
-            if not self._check_done(self.base_dir/'export'):
-                self._export()
+            self._export()
             print("\tDone.", flush=True)
             # Done
             now = datetime.now()
