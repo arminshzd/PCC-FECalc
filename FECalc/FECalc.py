@@ -493,19 +493,24 @@ class FECalc():
                     now = now.strftime("%m/%d/%Y, %H:%M:%S")
                     print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
                 try:
-                    subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh", check=True, shell=True)
-                    # ensure block fails if run not completed
-                    if not Path.exists(self.complex_dir/"md"/"md.gro"):
-                        raise RuntimeError("Run not completed.")
+                    subprocess.run(
+                        f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh",
+                        check=True,
+                        shell=True,
+                    )
                     if attempt > 0:
                         print()
                     break
-                except (subprocess.CalledProcessError, RuntimeError) as e:
+                except subprocess.CalledProcessError as e:
                     attempt += 1
                     if attempt >= max_attempts:
                         raise RuntimeError(
                             f"PBMetaD run failed after {max_attempts} attempts: {e}"
                         ) from e
+
+            # ensure workflow completed successfully
+            if not Path.exists(self.complex_dir/"md"/"md.gro"):
+                raise RuntimeError("Run not completed.")
     
         self._set_done(self.complex_dir/'md')
         return None
