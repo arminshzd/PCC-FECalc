@@ -510,7 +510,7 @@ class FECalc():
 
             # ensure workflow completed successfully
             if not Path.exists(self.complex_dir/"md"/"md.gro"):
-                raise RuntimeError("Run not completed.")
+                raise RuntimeError("The PBMetaD run did not complete successfully. Check the PBMetaD directory for more information and rerun FECalc to continue or retry.")
     
         self._set_done(self.complex_dir/'md')
         return None
