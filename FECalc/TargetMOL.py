@@ -83,14 +83,14 @@ class TargetMOL():
     
     def _get_n_atoms(self, gro_dir: Path) -> None:
         """
-        Get the number of PCC atoms from gro file
+        Get the number of MOL atoms from gro file
 
         Args:
-            gro_dir (Path): path to PCC.gro file.
+            gro_dir (Path): path to MOL.gro file.
         """
         with open(gro_dir) as f:
             gro_cnt = f.readlines()
-        self.PCC_n_atoms = int(gro_cnt[1].split()[0])
+        self.MOL_n_atoms = int(gro_cnt[1].split()[0])
     
     def _get_params(self, wait: bool = True) -> None: 
         """
@@ -152,7 +152,7 @@ class TargetMOL():
             subprocess.run(f"cp {self.mold_dir}/PCC/em/sub_mdrun_em.sh .", shell=True) # copy mdrun submission script
             # fix topol.top
             subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
-            # set self.PCC_n_atoms
+            # set self.MOL_n_atoms
             #self._get_n_atoms("./PCC_GMX.gro")
             # submit em job
             wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
