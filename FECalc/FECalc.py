@@ -76,6 +76,7 @@ class FECalc():
         self.MOL_list_atom = [] # list of MOL atom names (str)
         self.PCC_list_atom = [] # list of PCC atom names (str)
         self.T = float(temp)
+        self.KbT = 8.314 * self.T
         self.box_size = float(kwargs.get("box", 5.0))
 
         # MetaD setup
