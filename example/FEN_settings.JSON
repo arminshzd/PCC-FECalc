@@ -3,6 +3,6 @@
     "charge": 0,
     "anchor1": ["C", "C1", "C2"],
     "anchor2": ["N1", "C13", "C21"],
-    "output_dir": "/scratch/midway2/arminsh/FEN-HTVS/HTVS_test/MOLs/FEN",
-    "input_pdb_dir": "/scratch/midway2/arminsh/FEN-HTVS/FEN.pdb"
+    "output_dir": "/path/to/output_dir",
+    "input_pdb_dir": "/path/to/FEN.pdb"
 }

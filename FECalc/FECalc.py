@@ -228,15 +228,15 @@ class FECalc():
         ## CREATE TOPOL.TOP
             with cd(self.complex_dir): # cd into complex
                 # copy MOL and PCC files into complex directory
-                subprocess.run(f"cp {self.target_dir}/MOL.itp .", shell=True, check=True)
-                subprocess.run(f"cp {self.target_dir}/MOL.pdb .", shell=True, check=True)
-                subprocess.run(f"cp {self.target_dir}/posre_MOL.itp .", shell=True, check=True) # This has incorrect atom numbers
-                subprocess.run(f"cp {self.PCC_dir}/PCC.acpype/PCC_GMX.itp ./PCC.itp", shell=True, check=True)
-                subprocess.run(f"cp {self.PCC_dir}/PCC.acpype/posre_PCC.itp .", shell=True, check=True)
-                subprocess.run(f"cp {self.PCC_dir}/em/PCC_em.pdb ./PCC.pdb", shell=True, check=True)
+                subprocess.run(["cp", f"{self.target_dir}/MOL.itp", "."], check=True)
+                subprocess.run(["cp", f"{self.target_dir}/MOL.pdb", "."], check=True)
+                subprocess.run(["cp", f"{self.target_dir}/posre_MOL.itp", "."], check=True) # This has incorrect atom numbers
+                subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/PCC_GMX.itp", "./PCC.itp"], check=True)
+                subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/posre_PCC.itp", "."], check=True)
+                subprocess.run(["cp", f"{self.PCC_dir}/em/PCC_em.pdb", "./PCC.pdb"], check=True)
                 # create complex.pdb with packmol
-                subprocess.run(f"cp {self.mold_dir}/complex/mix/mix.inp .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/mix/run_packmol.sh .", shell=True, check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/mix/mix.inp", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/mix/run_packmol.sh", "."], check=True)
                 subprocess.run("bash -c 'source run_packmol.sh'", shell=True, check=True)
                 # check for complex.pdb
                 if not Path.exists(self.complex_dir/"complex.pdb"):
@@ -266,16 +266,16 @@ class FECalc():
             Path.mkdir(self.complex_dir/"em", exist_ok=True)
             with cd(self.complex_dir/"em"): # cd into complex/em
                 # copy files into complex/em
-                subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
-                subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
-                subprocess.run("cp ../complex.itp .", shell=True, check=True)
-                subprocess.run(f"cp ../complex.pdb .", shell=True, check=True)
-                subprocess.run("cp ../topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/em/ions.mdp .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/em/em.mdp .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/em/sub_mdrun_complex_em.sh .", shell=True) # copy mdrun submission script
+                subprocess.run(["cp", "../MOL_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_MOL.itp", "."], check=True)
+                subprocess.run(["cp", "../PCC_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
+                subprocess.run(["cp", "../complex.itp", "."], check=True)
+                subprocess.run(["cp", "../complex.pdb", "."], check=True)
+                subprocess.run(["cp", "../topol.top", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/em/ions.mdp", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/em/em.mdp", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/em/sub_mdrun_complex_em.sh", "."], check=True) # copy mdrun submission script
                 wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
                 subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.box_size} {self.pcc.charge}", check=True, shell=True)
             self._set_done(self.complex_dir/'em')
@@ -290,18 +290,18 @@ class FECalc():
             Path.mkdir(self.complex_dir/"nvt", exist_ok=True)
             with cd(self.complex_dir/"nvt"): # cd into complex/nvt
                 # copy files into complex/nvt
-                subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../complex.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
-                subprocess.run("cp ../em/topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/nvt/sub_mdrun_complex_nvt.sh .", shell=True) # copy mdrun submission script
+                subprocess.run(["cp", "../MOL_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../PCC_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../complex.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_MOL.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
+                subprocess.run(["cp", "../em/topol.top", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/sub_mdrun_complex_nvt.sh", "."], check=True) # copy mdrun submission script
                 # copy nvt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt.mdp ./nvt_temp.mdp", shell=True, check=True)
+                    subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt.mdp", "./nvt_temp.mdp"], check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/nvt/nvt_nions.mdp ./nvt_temp.mdp", shell=True, check=True)
+                    subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt_nions.mdp", "./nvt_temp.mdp"], check=True)
                 # set temperature
                 self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
@@ -315,18 +315,18 @@ class FECalc():
             Path.mkdir(self.complex_dir/"npt", exist_ok=True)
             with cd(self.complex_dir/"npt"): # cd into complex/npt
                 # copy files into complex/npt
-                subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
-                subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
-                subprocess.run("cp ../complex.itp .", shell=True, check=True)
-                subprocess.run("cp ../nvt/topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/npt/sub_mdrun_complex_npt.sh .", shell=True) # copy mdrun submission script
+                subprocess.run(["cp", "../MOL_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_MOL.itp", "."], check=True)
+                subprocess.run(["cp", "../PCC_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
+                subprocess.run(["cp", "../complex.itp", "."], check=True)
+                subprocess.run(["cp", "../nvt/topol.top", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/npt/sub_mdrun_complex_npt.sh", "."], check=True) # copy mdrun submission script
                 # copy npt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt.mdp ./npt_temp.mdp", shell=True, check=True)
+                    subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt.mdp", "./npt_temp.mdp"], check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/npt/npt_nions.mdp ./npt_temp.mdp", shell=True, check=True)
+                    subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt_nions.mdp", "./npt_temp.mdp"], check=True)
                 # set temperature
                 self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
@@ -440,28 +440,28 @@ class FECalc():
                 subprocess.run("mv ./HILLS_ang ./HILLS_ang.bck.unk", shell=True, check=False)
                 subprocess.run("mv ./HILLS_cos ./HILLS_cos.bck.unk", shell=True, check=False)
                 subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=False)
-                subprocess.run("cp ./md.cpt ./md.cpt.bck.unk", shell=True, check=True)
+                subprocess.run(["cp", "./md.cpt", "./md.cpt.bck.unk"], check=True)
                 # check that all GRID files exist. If not replace them with backups.
                 if not Path.exists(self.complex_dir/"md"/"GRID_COM"):
                     print(f"{now}: Missing GRID_COM file. Replacing with latest backup.", flush=True)
-                    subprocess.run("cp ./bck.last.GRID_COM ./GRID_COM", shell=True, check=True)
+                    subprocess.run(["cp", "./bck.last.GRID_COM", "./GRID_COM"], check=True)
                 if not Path.exists(self.complex_dir/"md"/"GRID_cos"):
                     print(f"{now}: Missing GRID_cos file. Replacing with latest backup.", flush=True)
-                    subprocess.run("cp ./bck.last.GRID_cos ./GRID_cos", shell=True, check=True)
+                    subprocess.run(["cp", "./bck.last.GRID_cos", "./GRID_cos"], check=True)
                 if not Path.exists(self.complex_dir/"md"/"GRID_ang"):
                     print(f"{now}: Missing GRID_ang file. Replacing with latest backup.", flush=True)
-                    subprocess.run("cp ./bck.last.GRID_ang ./GRID_ang", shell=True, check=True)
+                    subprocess.run(["cp", "./bck.last.GRID_ang", "./GRID_ang"], check=True)
             else:
                 # copy files into complex/pbmetad
-                subprocess.run("cp ../MOL_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_MOL.itp .", shell=True, check=True)
-                subprocess.run("cp ../PCC_truncated.itp .", shell=True, check=True)
-                subprocess.run("cp ../posre_PCC.itp .", shell=True, check=True)
-                subprocess.run("cp ../complex.itp .", shell=True, check=True)
-                subprocess.run("cp ../npt/topol.top .", shell=True, check=True)
-                subprocess.run(f"cp {self.mold_dir}/complex/md/sub_mdrun_plumed.sh .", shell=True) # copy mdrun submission script
-                subprocess.run(f"cp {self.mold_dir}/complex/md/plumed.dat ./plumed_temp.dat", shell=True) # copy pbmetad script
-                subprocess.run(f"cp {self.mold_dir}/complex/md/plumed_restart.dat ./plumed_r_temp.dat", shell=True) # copy pbmetad script
+                subprocess.run(["cp", "../MOL_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_MOL.itp", "."], check=True)
+                subprocess.run(["cp", "../PCC_truncated.itp", "."], check=True)
+                subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
+                subprocess.run(["cp", "../complex.itp", "."], check=True)
+                subprocess.run(["cp", "../npt/topol.top", "."], check=True)
+                subprocess.run(["cp", f"{self.mold_dir}/complex/md/sub_mdrun_plumed.sh", "."], check=True) # copy mdrun submission script
+                subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed.dat", "./plumed_temp.dat"], check=True) # copy pbmetad script
+                subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed_restart.dat", "./plumed_r_temp.dat"], check=True) # copy pbmetad script
                 # update PCC and MOL atom ids
                 self._create_plumed("./plumed_temp.dat", "./plumed.dat")
                 self._create_plumed("./plumed_r_temp.dat", "./plumed_restart.dat")
@@ -470,9 +470,9 @@ class FECalc():
                 subprocess.run(f"rm ./plumed_r_temp.dat", shell=True)
                 # copy nvt.mdp into pbmetad
                 if self.PCC_charge != 0:
-                    subprocess.run(f"cp {self.mold_dir}/complex/md/md.mdp ./md_temp.mdp", shell=True, check=True)
+                    subprocess.run(["cp", f"{self.mold_dir}/complex/md/md.mdp", "./md_temp.mdp"], check=True)
                 else:
-                    subprocess.run(f"cp {self.mold_dir}/complex/md/md_nions.mdp ./md_temp.mdp", shell=True, check=True)
+                    subprocess.run(["cp", f"{self.mold_dir}/complex/md/md_nions.mdp", "./md_temp.mdp"], check=True)
                 # set temperature and, if requested, the number of steps
                 self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
@@ -485,9 +485,9 @@ class FECalc():
                     subprocess.run(f"mv ./HILLS_ang ./HILLS_ang.bck.{attempt}", shell=True, check=False)
                     subprocess.run(f"mv ./HILLS_cos ./HILLS_cos.bck.{attempt}", shell=True, check=False)
                     subprocess.run(f"mv ./HILLS_COM ./HILLS_COM.bck.{attempt}", shell=True, check=False)
-                    subprocess.run(f"cp ./GRID_ang ./GRID_ang.bck.{attempt}", shell=True, check=False)
-                    subprocess.run(f"cp ./GRID_cos ./GRID_cos.bck.{attempt}", shell=True, check=False)
-                    subprocess.run(f"cp ./GRID_COM ./GRID_COM.bck.{attempt}", shell=True, check=False)
+                    subprocess.run(["cp", f"./GRID_ang", f"./GRID_ang.bck.{cnt}"], check=False)
+                    subprocess.run(["cp", f"./GRID_cos", f"./GRID_cos.bck.{cnt}"], check=False)
+                    subprocess.run(["cp", f"./GRID_COM", f"./GRID_COM.bck.{cnt}"], check=False)
                     subprocess.run(f"cp ./md.cpt ./md.cpt.bck.{attempt}", shell=True, check=False)
                     now = datetime.now()
                     now = now.strftime("%m/%d/%Y, %H:%M:%S")
@@ -532,11 +532,11 @@ class FECalc():
             # copy files into complex/reweight
             #subprocess.run("cp ../pbmetad/HILLS_COM .", shell=True, check=True)
             #subprocess.run("cp ../pbmetad/HILLS_ang .", shell=True, check=True)
-            subprocess.run("cp ../md/GRID_COM .", shell=True, check=True)
-            subprocess.run("cp ../md/GRID_ang .", shell=True, check=True)
-            subprocess.run("cp ../md/GRID_cos .", shell=True, check=True)
-            subprocess.run(f"cp {self.mold_dir}/complex/reweight/sub_mdrun_rerun.sh .", shell=True) # copy mdrun submission script            
-            subprocess.run(f"cp {self.mold_dir}/complex/reweight/reweight.dat ./reweight_temp.dat", shell=True) # copy reweight script
+            subprocess.run(["cp", "../md/GRID_COM", "."], check=True)
+            subprocess.run(["cp", "../md/GRID_ang", "."], check=True)
+            subprocess.run(["cp", "../md/GRID_cos", "."], check=True)
+            subprocess.run(["cp", f"{self.mold_dir}/complex/reweight/sub_mdrun_rerun.sh", "."], check=True) # copy mdrun submission script
+            subprocess.run(["cp", f"{self.mold_dir}/complex/reweight/reweight.dat", "./reweight_temp.dat"], check=True) # copy reweight script
             # update PCC and MOL atom ids
             self._create_plumed("./reweight_temp.dat", "./reweight.dat")
             # remove temp plumed file

@@ -1,8 +1,8 @@
 {
-    "PCC_output_dir": "./HTVS_test/PCCs",
-    "PCC_settings_json": "./PCCBuilder_settings.JSON",
-    "MOL_settings_json": "./FEN_settings.JSON",
-    "complex_output_dir": "./HTVS_test/DATA",
+    "PCC_output_dir": "/path/to/PCC_output_dir",
+    "PCC_settings_json": "/path/to/PCCBuilder_settings.JSON",
+    "MOL_settings_json": "/path/to/FEN_settings.JSON",
+    "complex_output_dir": "/path/to/complex_output_dir",
     "temperature": 300,
     "box_size": 5.0,
     "metad_settings": {
