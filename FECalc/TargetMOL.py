@@ -27,7 +27,6 @@ class TargetMOL():
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Building and minimizing structure for {self.name} (PID: {os.getpid()})")
         
-        self.script_dir = Path(__file__).parent / Path("scripts")
         self.mold_dir = Path(__file__).parent / Path("mold")
 
         output_dir = self.settings.get("output_dir")

@@ -38,7 +38,6 @@ class FECalc():
             pcc (PCCBuilder): PCC structure for FE calculations.
             target (TargetMol): Target molecule for FE calculations.
             base_dir (Path): directory to store the calculations
-            script_dir (Path): directory containing necessary scripts and templates
             temp (float): Temperature of the simulations
             box (float): Size of the simulation box
 
@@ -50,7 +49,6 @@ class FECalc():
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Free energy calculations for {self.pcc.PCC_code} with {self.target.name} (PID: {os.getpid()})")
-        self.script_dir = Path(__file__).parent/Path("scripts")#Path(self.settings['scripts_dir'])
         self.mold_dir = Path(__file__).parent/Path("mold")
         self.base_dir = Path(base_dir) # base directory to store files
         if self.base_dir.exists():
