@@ -35,7 +35,8 @@ class FECalc():
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Free energy calculations for {self.pcc.PCC_code} with {self.target.name} (PID: {os.getpid()})")
-        self.mold_dir = Path(__file__).parent/Path("mold")
+        # directory with template and helper files
+        self.script_dir = Path(__file__).parent / "scripts"
         self.base_dir = Path(base_dir) # base directory to store files
         if self.base_dir.exists():
             if not self.base_dir.is_dir():
@@ -368,8 +369,8 @@ class FECalc():
                 subprocess.run(["cp", "../complex.itp", "."], check=True)
                 subprocess.run(["cp", "../complex.pdb", "."], check=True)
                 subprocess.run(["cp", "../topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/em/ions.mdp", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/em/em.mdp", "."], check=True)
+                subprocess.run(["cp", f"{self.script_dir}/complex/em/ions.mdp", "."], check=True)
+                subprocess.run(["cp", f"{self.script_dir}/complex/em/em.mdp", "."], check=True)
                 self._run_complex_em()
             self._set_done(self.complex_dir/'em')
 
@@ -394,9 +395,9 @@ class FECalc():
                 subprocess.run(["cp", "../em/topol.top", "."], check=True)
                 # copy nvt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt.mdp", "./nvt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/nvt/nvt.mdp", "./nvt_temp.mdp"], check=True)
                 else:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt_nions.mdp", "./nvt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/nvt/nvt_nions.mdp", "./nvt_temp.mdp"], check=True)
                 # set temperature
                 self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
@@ -427,9 +428,9 @@ class FECalc():
                 subprocess.run(["cp", "../nvt/topol.top", "."], check=True)
                 # copy npt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt.mdp", "./npt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/npt/npt.mdp", "./npt_temp.mdp"], check=True)
                 else:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt_nions.mdp", "./npt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/npt/npt_nions.mdp", "./npt_temp.mdp"], check=True)
                 # set temperature
                 self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
@@ -598,8 +599,8 @@ class FECalc():
                 subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", "../complex.itp", "."], check=True)
                 subprocess.run(["cp", "../npt/topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed.dat", "./plumed_temp.dat"], check=True) # copy pbmetad script
-                subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed_restart.dat", "./plumed_r_temp.dat"], check=True) # copy pbmetad script
+                subprocess.run(["cp", f"{self.script_dir}/complex/md/plumed.dat", "./plumed_temp.dat"], check=True) # copy pbmetad script
+                subprocess.run(["cp", f"{self.script_dir}/complex/md/plumed_restart.dat", "./plumed_r_temp.dat"], check=True) # copy pbmetad script
                 # update PCC and MOL atom ids
                 self._create_plumed("./plumed_temp.dat", "./plumed.dat")
                 self._create_plumed("./plumed_r_temp.dat", "./plumed_restart.dat")
@@ -608,9 +609,9 @@ class FECalc():
                 subprocess.run(f"rm ./plumed_r_temp.dat", shell=True)
                 # copy nvt.mdp into pbmetad
                 if self.PCC_charge != 0:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/md/md.mdp", "./md_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/md/md.mdp", "./md_temp.mdp"], check=True)
                 else:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/md/md_nions.mdp", "./md_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/md/md_nions.mdp", "./md_temp.mdp"], check=True)
                 # set temperature and, if requested, the number of steps
                 self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
@@ -715,7 +716,7 @@ class FECalc():
             subprocess.run(["cp", "../md/GRID_COM", "."], check=True)
             subprocess.run(["cp", "../md/GRID_ang", "."], check=True)
             subprocess.run(["cp", "../md/GRID_cos", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/complex/reweight/reweight.dat", "./reweight_temp.dat"], check=True) # copy reweight script
+            subprocess.run(["cp", f"{self.script_dir}/complex/reweight/reweight.dat", "./reweight_temp.dat"], check=True) # copy reweight script
             # update PCC and MOL atom ids
             self._create_plumed("./reweight_temp.dat", "./reweight.dat")
             # remove temp plumed file

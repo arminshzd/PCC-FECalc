@@ -34,8 +34,7 @@ class PCCBuilder():
         self.settings_dir = Path(settings_json) # path settings.JSON
         with open(self.settings_dir) as f:
             self.settings = json.load(f)
-        self.script_dir = Path(__file__).parent/"scripts"
-        self.mold_dir = Path(__file__).parent/"mold"
+        self.script_dir = Path(__file__).parent / "scripts"
         self.base_dir = Path(base_dir) # base directory to store files
         if self.base_dir.exists():
             if not self.base_dir.is_dir():
@@ -213,9 +212,9 @@ class PCCBuilder():
             subprocess.run(["cp", "../PCC.acpype/PCC_GMX.gro", "."], check=True)
             subprocess.run(["cp", "../PCC.acpype/PCC_GMX.itp", "."], check=True)
             subprocess.run(["cp", "../PCC.acpype/posre_PCC.itp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/topol.top", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/topol.top", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/ions.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/em.mdp", "."], check=True)
 
             # construct simulation box and solvate
             run_gmx(
