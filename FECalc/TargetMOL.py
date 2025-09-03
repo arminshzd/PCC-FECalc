@@ -8,15 +8,19 @@ from .utils import cd, _prep_pdb
 
 
 class TargetMOL():
-    """_summary_
+    """Handle preparation of the small-molecule target.
+
+    The class loads user-provided settings, generates force-field parameters
+    with ``acpype``, minimizes the structure, and exports the files required
+    for complex assembly with a PCC.
     """
+
     def __init__(self, settings_json: Path) -> None:
-        """_summary_
+        """Initialize the target molecule from a settings file.
 
         Args:
-            target_name (str): name of the target molecule
-            base_dir (Path): _description_
-            settings_json (Path): _description_
+            settings_json (Path): Path to a JSON file with target
+                configuration and I/O paths.
         """
 
         with open(Path(settings_json)) as f:
@@ -87,12 +91,16 @@ class TargetMOL():
         done_file.touch()
         return None
     
-    def _get_params(self, wait: bool = True) -> None: 
-        """
-        Run acpype on the MOL pdb file. Submits a job to the cluster.
+    def _get_params(self, wait: bool = True) -> None:
+        """Generate GAFF parameters for the target molecule using ``acpype``.
 
         Args:
-            wait (bool, optional): Whether to wait for acpype to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for ``acpype`` to finish.
+                Defaults to ``True``.
+
+        Raises:
+            RuntimeError: If ``acpype.log`` contains warnings indicating
+                potential problems with the generated topology.
 
         Returns:
             None
@@ -154,16 +162,30 @@ class TargetMOL():
         return None
     
     def _export(self):
+        """Export minimized target files for use in complex assembly.
+
+        Copies the final ``.itp`` and ``.pdb`` files to an ``export``
+        directory that can be consumed by :class:`FECalc`.
+        """
         Path.mkdir(self.base_dir/"export", exist_ok=True)
-        with cd(self.base_dir/"export"): # cd into export
+        with cd(self.base_dir/"export"):  # cd into export
             subprocess.run(["cp", "../em/MOL_GMX.itp", "./MOL.itp"], check=True)
             subprocess.run(["cp", "../em/posre_MOL.itp", "."], check=True)
             subprocess.run(["cp", "../em/MOL_em.pdb", "./MOL.pdb"], check=True)
         self._set_done(self.base_dir/"export")
 
     def create(self) -> None:
-        # Check this first incase the simulations were run in a different
-        # directory and we are only pointing to the results.
+        """Prepare the target molecule for use in FE calculations.
+
+        This wrapper runs ``acpype`` to generate parameters, minimizes the
+        structure, and exports the relevant files. Each step is skipped if a
+        ``.done`` marker exists.
+
+        Returns:
+            None
+        """
+        # Check this first in case the simulations were run elsewhere and we
+        # are only pointing to the results.
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         if not self._check_done(self.base_dir/'export'):
@@ -190,5 +212,6 @@ class TargetMOL():
             print(f"{now}: All steps completed.")
         else:
             print(f"{now}: Target molecule loaded from previous calculations.")
-        print("-"*30 + "Finished" + "-"*30)
+        print("-" * 30 + "Finished" + "-" * 30)
         return None
+

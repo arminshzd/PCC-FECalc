@@ -8,13 +8,12 @@ from .GMXitp.GMXitp import GMXitp
 from .utils import cd
 
 class FECalc():
-    """
-    Class to calculate free energy surface given PCC peptide chain and target name.
-    First, the PCC is generated from the master PCC structure. Then `AMBER` parameters
-    are generated for the new PCC using `acpype`. New PCC is then solvated and equilibrated.
-    The equilibrated structures is placed in a box with the target molecule using `packmol`.
-    The complex box is then solvated and equilibrated and the free energy surface is calculated
-    using `PBMetaD`.
+    """Compute PCC–target binding free energies via PBMetaD simulations.
+
+    The workflow constructs the peptide capture construct (PCC) and target,
+    generates ``AMBER`` parameters with ``acpype``, equilibrates the complex
+    in solution, runs parallel-bias metadynamics (PBMetaD), and prepares the
+    output for free-energy analysis.
     """
     def __init__(self, pcc, target, base_dir: Path, temp: float, box: float, **kwargs) -> None:
         """
@@ -145,10 +144,11 @@ class FECalc():
         return None
         
     def _fix_posre(self) -> None:
-        """
-        Fix atom ids in position restraint files. Read the new ids from the `em.gro` file
-        AFTER minimization and writes posre_MOL.itp and posre_PCC.itp.
-        atoms.
+        """Regenerate position restraints with updated atom indices.
+
+        The atom numbering changes after energy minimization of the complex.
+        This function reads the minimized ``em.gro`` file and writes
+        ``posre_MOL.itp`` and ``posre_PCC.itp`` with the correct atom IDs.
 
         Returns:
             None
@@ -177,14 +177,16 @@ class FECalc():
         return None
     
     def update_mdp(self, mdp_in, mdp_out, n_steps=None):
-        """
-        Update the mdp files with the correct temperature and optionally the number of steps.
+        """Update MDP files with the target temperature and step count.
 
         Args:
-            mdp_in (Path): Path to the tempelate
-            mdp_out (Path): Path to the output file
-            n_steps (int, optional): Number of steps to set in the output. If ``None`` the
-                steps value in the template is kept unchanged.
+            mdp_in (Path): Path to the input template.
+            mdp_out (Path): Path to the output file.
+            n_steps (int, optional): Number of steps to set in the output. If
+                ``None`` the value from the template is retained.
+
+        Returns:
+            None
         """
         lines = []
         with open(mdp_in, 'r') as f:
@@ -201,8 +203,11 @@ class FECalc():
             f.writelines(lines)
 
     def _mix(self) -> None:
-        """
-        Create the simulation box with MOL and PCC, and create initial structures for both sides of the PCC.
+        """Create the initial PCC–target complex.
+
+        The method copies the PCC and target files, uses ``packmol`` to pack
+        them into a simulation box, and generates ``topol.top`` and
+        ``complex.itp`` files for subsequent steps.
 
         Returns:
             None
@@ -233,12 +238,15 @@ class FECalc():
         return None
     
     def _eq_complex(self, wait: bool = True) -> None:
-        """
-        Solvate, and equilibrate the complex.
+        """Solvate and equilibrate the PCC–target complex.
+
+        Energy minimization, NVT, and NPT simulations are run sequentially.
+        After minimization, atom indices are updated and position restraint
+        files are regenerated.
 
         Args:
-            rot_key: (int): Which side of the PCC to equilibrate
-            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for each simulation stage to
+                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -344,16 +352,20 @@ class FECalc():
         return True
 
     def _create_plumed(self, plumed_in: Path, plumed_out: Path) -> None:
-        """
-        Fix the plumed tempelate with MOL and PCC atom ids. DOES NOT SUPPORT NON-CONTINUOUS ATOM IDS.
+        """Insert atom indices into a PLUMED input template.
+
+        The function replaces placeholders in ``plumed_in`` with the correct
+        MOL and PCC atom IDs and writes the result to ``plumed_out``. Only
+        continuous atom ID ranges are supported.
 
         Args:
-            plumed_in (Path): Path to input plumed file
-            plumed_out (Path): Path to output plumed file
+            plumed_in (Path): Path to the input PLUMED file.
+            plumed_out (Path): Path to the output PLUMED file.
 
         Raises:
-            AssertionError: If `self.MOL_list` or `self.PCC_list` are not continuous.
-            
+            AssertionError: If ``self.MOL_list`` or ``self.PCC_list`` are not
+                continuous.
+
         Returns:
             None
         """
@@ -405,12 +417,15 @@ class FECalc():
         return None
 
     def _pbmetaD(self, wait: bool = True) -> None:
-        """
-        Run PBMetaD from equilibrated structure.
+        """Run parallel-bias metadynamics (PBMetaD) from the equilibrated structure.
+
+        The method prepares PLUMED inputs with the correct atom IDs, submits
+        the PBMetaD job through ``sbatch``, and automatically resumes from a
+        checkpoint if one is detected.
 
         Args:
-            rot_key: (int): Which side of the PCC to run.
-            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for the PBMetaD run to
+                complete. Defaults to ``True``.
 
         Returns:
             None
@@ -502,12 +517,17 @@ class FECalc():
         return None
     
     def _reweight(self, wait: bool = True) -> None:
-        """
-        Reweight the results of the pbmetad run.
+        """Reweight the results of the PBMetaD run.
+
+        This is achieved by using a ``plumed`` reweighting script that
+        recalculates the final, converged bias using the grid files from the
+        PBMetaD simulation and creates a new COLVARS file with the converged
+        values of bias which is used by ``postprocess`` to calculate the free
+        energy.
 
         Args:
-            rot_key: (int): Which side of the PCC to run.
-            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for the reweighting job to
+                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -534,11 +554,18 @@ class FECalc():
         return None
 
     def run(self, n_steps=None) -> tuple:
-        """Wrapper for FE calculations. Create PCC, call acpype,
-        minimize, create complex, and run PBMetaD.
+        """Execute the full free-energy calculation workflow.
+
+        The routine builds the complex, equilibrates it, performs PBMetaD,
+        and reweights the resulting trajectory. The number of PBMetaD steps
+        can be overridden with ``n_steps``.
 
         Args:
-            n_steps (int, optional): Override the number of PBMetaD simulation steps.
+            n_steps (int, optional): Override the number of PBMetaD simulation
+                steps.
+
+        Returns:
+            None
         """
         if n_steps is not None:
             self.n_steps = n_steps
