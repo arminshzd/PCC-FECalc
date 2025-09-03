@@ -74,7 +74,6 @@ class PCCBuilder():
         self.anchor_point1 = self.settings["anchor1"]
         self.anchor_point2 = self.settings["anchor2"]
 
-        self.pymol = Path(self.settings['pymol_dir']) # path to pymol installation
 
         # hardware settings
         self.nodes = int(nodes)
@@ -128,7 +127,22 @@ class PCCBuilder():
         pcc_translate = [self.AAdict13[i] for i in list(self.PCC_code)] # translate the 1 letter AA code to 3 letter code
         numres = len(pcc_translate) # number of residues
         mutation = "".join(pcc_translate) # concatenate the 3 letter codes
-        subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
+        subprocess.run(
+            [
+                "pymol",
+                "-qc",
+                f"{self.script_dir}/PCCmold.py",
+                "-i",
+                str(self.PCC_ref),
+                "-o",
+                str(self.PCC_dir / f"{self.PCC_code}.pdb"),
+                "-r",
+                str(numres),
+                "-m",
+                mutation,
+            ],
+            check=True,
+        )
         _, _, coords = _read_pdb(self.PCC_dir/f"{self.PCC_code}.pdb")
         self.n_atoms = coords.shape[0]
         # pre-optimization (minimize the structure with Open Babel)

@@ -20,7 +20,6 @@ def make_settings(tmp_path):
         "origin": [0, 0, 0],
         "anchor1": [0, 0, 0],
         "anchor2": [1, 0, 0],
-        "pymol_dir": "/usr/bin/pymol",
     }
     settings_file = tmp_path / "settings.json"
     settings_file.write_text(json.dumps(settings))
