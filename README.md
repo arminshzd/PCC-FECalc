@@ -34,13 +34,15 @@ The framework is organized into four main submodules that work in serial to perf
 pip install -e .
 ```
 
+> **Note:** PyMOL is required but not installed automatically because no pip wheel is available. Install PyMOL separately from [pymol.org](https://www.pymol.org/) or the open-source repository at [github.com/schrodinger/pymol-open-source](https://github.com/schrodinger/pymol-open-source), and ensure the `pymol` executable is on your `PATH`.
+
 ---
 
 ## 🛠 Usage
 
 See `example/pcc_submit_test.py` for a sample calculation setup.
 
-This framework additionally relies on PyMOL and `acpype` for PCC mutations and GAFF2 parameter generation. Both are installed automatically as the `pymol-open-source` and `acpype` Python packages. Ensure the `pymol` executable is available on your `PATH`.
+This framework additionally relies on PyMOL and `acpype` for PCC mutations and GAFF2 parameter generation. `acpype` is installed automatically as a Python package. PyMOL must be installed separately as described above.
 
 The calculations happen through four steps and each step requires a `JSON` files with the necessary user parameters:
 
