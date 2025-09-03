@@ -139,32 +139,42 @@ def _place_in_box(pcc_pdb, mol_pdb, out_pdb, box_size, min_dist=3.0, initial_sep
     mol_coords_box = mol_shifted + box_center - axis * sep / 2
 
     # write combined PDB
-    def _update_lines(fname, coords):
+    def _update_lines(fname, coords, start_serial):
         with open(fname) as f:
             lines = f.readlines()
         new_lines = []
+        serial = start_serial
         atom_i = 0
         for line in lines:
-            fields = line.split()
-            if fields and fields[0] in {"ATOM", "HETATM"}:
-                x = f"{coords[atom_i, 0]:.3f}"
-                x = " " * (8 - len(x)) + x
-                y = f"{coords[atom_i, 1]:.3f}"
-                y = " " * (8 - len(y)) + y
-                z = f"{coords[atom_i, 2]:.3f}"
-                z = " " * (8 - len(z)) + z
-                new_line = line[:30] + x + y + z + line[54:]
+            record = line[:6].strip()
+            if record in {"ATOM", "HETATM"}:
+                serial_str = f"{serial:5d}"
+                x = f"{coords[atom_i, 0]:8.3f}"
+                y = f"{coords[atom_i, 1]:8.3f}"
+                z = f"{coords[atom_i, 2]:8.3f}"
+                new_line = (
+                    line[:6]
+                    + serial_str
+                    + line[11:30]
+                    + x
+                    + y
+                    + z
+                    + line[54:]
+                )
                 atom_i += 1
+                serial += 1
+                new_lines.append(new_line)
+            elif record in {"END", "ENDMDL"}:
+                continue
             else:
-                new_line = line
-            new_lines.append(new_line)
-        return new_lines
+                new_lines.append(line)
+        return new_lines, serial
 
-    pcc_lines = _update_lines(pcc_pdb, pcc_coords_box)
-    mol_lines = _update_lines(mol_pdb, mol_coords_box)
+    pcc_lines, next_serial = _update_lines(pcc_pdb, pcc_coords_box, 1)
+    mol_lines, _ = _update_lines(mol_pdb, mol_coords_box, next_serial)
 
     with open(out_pdb, "w") as f:
-        f.writelines(pcc_lines + mol_lines)
+        f.writelines(pcc_lines + mol_lines + ["END\n"])
 
     return None
 
