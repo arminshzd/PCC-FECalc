@@ -91,12 +91,11 @@ class TargetMOL():
         done_file.touch()
         return None
     
-    def _get_params(self, wait: bool = True) -> None:
+    def _get_params(self) -> None:
         """Generate GAFF parameters for the target molecule using ``acpype``.
 
-        Args:
-            wait (bool, optional): Whether to wait for ``acpype`` to finish.
-                Defaults to ``True``.
+        ``acpype`` is executed directly instead of through the previous
+        ``sub_acpype.sh`` submission script.
 
         Raises:
             RuntimeError: If ``acpype.log`` contains warnings indicating
@@ -109,26 +108,28 @@ class TargetMOL():
         subprocess.run(
             f"cp {self.input_pdb_dir} {self.base_dir}/MOL.pdb", shell=True, check=True
         )
-        # Copy acpype submission script
-        subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_acpype.sh", f"{self.base_dir}"], check=True)
 
-        # whether to wait for acpype to finish before exiting
-        wait_str = " --wait " if wait else ""
-        with cd(self.base_dir): # cd into the working directory
-                        # create acpype pdb with 1 residue
+        with cd(self.base_dir):  # cd into the working directory
+            # create acpype pdb with 1 residue
             _prep_pdb("MOL.pdb", "MOL_acpype.pdb", "MOL")
-            # run acpype
+
+            # run acpype directly
+            acpype_cmd = (
+                f"acpype -i MOL_acpype.pdb -b MOL -c bcc -n {self.charge} -a gaff2"
+            )
             print("Running acpype: ", flush=True)
-            subprocess.run(f"sbatch -J MOL{wait_str}sub_acpype.sh MOL_acpype MOL {self.charge}", shell=True, check=True)
-        
+            subprocess.run(acpype_cmd, shell=True, check=True)
+
             # check acpype.log for warnings
             with open("MOL.acpype/acpype.log") as f:
                 acpype_log = f.read()
                 if "warning:" in acpype_log.lower():
-                    raise RuntimeError("""Acpype generated files are likely to have incorrect bonds. 
-                                       Check the generated MOL structure before continueing.""")
+                    raise RuntimeError(
+                        """Acpype generated files are likely to have incorrect bonds.
+                                       Check the generated MOL structure before continueing."""
+                    )
 
-        self._set_done(self.base_dir/"MOL.acpype")
+        self._set_done(self.base_dir / "MOL.acpype")
         return None
     
     def _minimize_MOL(self, wait: bool = True) -> None: 
