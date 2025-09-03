@@ -3,18 +3,31 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "PCC-FECalc"
+name = "pcc-fecalc"
 version = "0.1.0"
 description = "Binding Free Energy Calculations for Protein-Catalyzed Capture Agents"
-authors = [
-    { name = "Armin Shayesteh Zadeh", email = "arminshzd@gmail.com"}
-]
 readme = "README.md"
-requires-python = ">=3.9"
+authors = [{ name = "Armin Shayesteh Zadeh", email = "arminshzd@gmail.com" }]
 license = { text = "MIT" }
-
+requires-python = ">=3.9"
 dependencies = [
     "numpy",
     "scipy",
-    "pandas"
+    "pandas",
+    "ase",
+    "acpype",
+    "pymol-open-source",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["FECalc", "FECalc.*"]
+
+[tool.setuptools.package-data]
+"FECalc" = ["PCCBuilder_settings.JSON", "scripts/*.pdb"]
+
