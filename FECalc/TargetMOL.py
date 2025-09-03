@@ -15,12 +15,22 @@ class TargetMOL():
     for complex assembly with a PCC.
     """
 
-    def __init__(self, settings_json: Path) -> None:
+    def __init__(
+        self,
+        settings_json: Path,
+        *,
+        nodes: int = 1,
+        cores: int = 1,
+        threads: int = 1,
+    ) -> None:
         """Initialize the target molecule from a settings file.
 
         Args:
             settings_json (Path): Path to a JSON file with target
                 configuration and I/O paths.
+            nodes (int, optional): number of nodes. Defaults to ``1``.
+            cores (int, optional): cores per node. Defaults to ``1``.
+            threads (int, optional): threads per core. Defaults to ``1``.
         """
 
         with open(Path(settings_json)) as f:
@@ -56,6 +66,11 @@ class TargetMOL():
         self.charge = int(self.settings.get("charge", 0))
         self.anchor_point1 = self.settings["anchor1"]
         self.anchor_point2 = self.settings["anchor2"]
+
+        # hardware settings
+        self.nodes = int(nodes)
+        self.cores = int(cores)
+        self.threads = int(threads)
 
     def _check_done(self, stage: Path) -> bool:
         """
@@ -155,11 +170,8 @@ class TargetMOL():
             # fix topol.top
             subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
 
-            # Determine total number of threads for mdrun from Slurm env vars
-            ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
-            nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-            nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
-            np = ncpu * nthr * nnod
+            # Determine total number of threads for mdrun
+            np = self.nodes * self.cores * self.threads
 
             # Create box
             subprocess.run([

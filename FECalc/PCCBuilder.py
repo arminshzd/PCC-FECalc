@@ -15,14 +15,25 @@ class PCCBuilder():
     structure for subsequent free-energy calculations.
     """
 
-    def __init__(self, pcc: str, base_dir: Path, settings_json: Path) -> None:
-        """
-        Setup the PCCBuilder directories
-    
+    def __init__(
+        self,
+        pcc: str,
+        base_dir: Path,
+        settings_json: Path,
+        *,
+        nodes: int = 1,
+        cores: int = 1,
+        threads: int = 1,
+    ) -> None:
+        """Setup the PCCBuilder directories.
+
         Args:
             pcc (str): single letter string of AAs, ordered from arm to bead on the PCC structure.
             base_dir (Path): directory to store the calculations
             settings_json (Path): directory of settings.JSON file
+            nodes (int, optional): number of nodes. Defaults to ``1``.
+            cores (int, optional): cores per node. Defaults to ``1``.
+            threads (int, optional): threads per core. Defaults to ``1``.
 
         Raises:
             ValueError: Raises Value error if `base_dir` is not a directory.
@@ -65,6 +76,11 @@ class PCCBuilder():
         self.anchor_point2 = self.settings["anchor2"]
 
         self.pymol = Path(self.settings['pymol_dir']) # path to pymol installation
+
+        # hardware settings
+        self.nodes = int(nodes)
+        self.cores = int(cores)
+        self.threads = int(threads)
 
     def _check_done(self, stage: Path) -> bool:
         """
@@ -260,10 +276,7 @@ class PCCBuilder():
                 check=True,
             )
 
-            ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
-            nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-            nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
-            np_total = ncpu * nthr * nnod
+            np_total = self.nodes * self.cores * self.threads
             subprocess.run(
                 f"gmx mdrun -ntomp {np_total} -deffnm em",
                 shell=True,
