@@ -82,8 +82,7 @@ def test_check_and_set_done_handle_paths(tmp_path):
     assert tm._check_done(abs_stage)
 
 
-@pytest.mark.parametrize("wait_flag", [True, False])
-def test_get_params_runs_acpype(tmp_path, monkeypatch, wait_flag):
+def test_get_params_runs_acpype(tmp_path, monkeypatch):
     tm = _init_target(tmp_path)
 
     acpype_dir = tm.base_dir / "MOL.acpype"
@@ -115,20 +114,18 @@ def test_get_params_runs_acpype(tmp_path, monkeypatch, wait_flag):
                 (dst / src.name).write_text(src.read_text())
             else:
                 dst.write_text(src.read_text())
+        elif isinstance(cmd, str) and cmd.startswith("acpype"):
+            pass
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr("FECalc.TargetMOL._prep_pdb", fake_prep)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    tm._get_params(wait=wait_flag)
+    tm._get_params()
 
     assert (tm.base_dir / "MOL.pdb").exists()
     assert prep_calls == [("MOL.pdb", "MOL_acpype.pdb", "MOL")]
-    sbatch_cmd = [c for c in commands if isinstance(c, str) and c.startswith("sbatch")][0]
-    if wait_flag:
-        assert "--wait" in sbatch_cmd
-    else:
-        assert "--wait" not in sbatch_cmd
+    assert any(c.startswith("acpype") for c in commands)
     assert (acpype_dir / ".done").exists()
 
 
@@ -208,11 +205,10 @@ def test_minimize_mol_copies_files_and_runs(tmp_path, monkeypatch, wait_flag):
     em_dir = tm.base_dir / "em"
     assert (em_dir / "MOL_GMX.gro").exists()
     assert "MOL" in (em_dir / "topol.top").read_text()
-    sbatch_cmd = [c for c in commands if isinstance(c, str) and c.startswith("sbatch")][0]
-    if wait_flag:
-        assert "--wait" in sbatch_cmd
-    else:
-        assert "--wait" not in sbatch_cmd
+    assert any(c.startswith("gmx editconf") for c in commands)
+    assert any(c.startswith("gmx mdrun") for c in commands)
+    assert any(c.startswith("gmx trjconv") for c in commands)
+    assert not any("sbatch" in c for c in commands)
     assert (em_dir / ".done").exists()
 
 
