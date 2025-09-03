@@ -16,7 +16,6 @@ from FECalc.PCCBuilder import PCCBuilder
 
 def make_settings(tmp_path):
     settings = {
-        "ref_PCC_dir": "ref.pdb",
         "origin": [0, 0, 0],
         "anchor1": [0, 0, 0],
         "anchor2": [1, 0, 0],

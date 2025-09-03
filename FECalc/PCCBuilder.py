@@ -59,7 +59,7 @@ class PCCBuilder():
         self.PCC_dir = self.base_dir/f"{self.PCC_code}" # directory to store PCC calculations
         self.PCC_dir.mkdir(exist_ok=True)
 
-        self.PCC_ref = Path(self.settings["ref_PCC_dir"]) # path to refrence PCC structure
+        self.PCC_ref = self.script_dir / "GGGGG.pdb"  # path to reference PCC structure
         
         self.AAdict31 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
                          'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
