@@ -116,15 +116,31 @@ class PCCBuilder():
         subprocess.run(f"{self.pymol} -qc {self.script_dir}/PCCmold.py -i {self.PCC_ref} -o {self.PCC_dir/self.PCC_code}.pdb -r {numres} -m {mutation}", shell=True, check=True)
         _, _, coords = _read_pdb(self.PCC_dir/f"{self.PCC_code}.pdb")
         self.n_atoms = coords.shape[0]
-        # pre-optimization
-        wait_str = " --wait "
-        subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_preopt.sh", f"{self.PCC_dir}"], check=True) # copy preopt submission script
-        with cd(self.PCC_dir): # cd into the PCC directory
+        # pre-optimization (minimize the structure with Open Babel)
+        with cd(self.PCC_dir):  # cd into the PCC directory
             # pre-optimize to deal with possible clashes created while changing residues to D-AAs
-            print("Pre-optimizing: ", flush=True)
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_preopt.sh {self.PCC_code}.pdb {self.PCC_code}_babel.pdb", shell=True, check=True)
+            print("Running obabel:", flush=True)
+            subprocess.run(
+                [
+                    "obabel",
+                    f"{self.PCC_code}.pdb",
+                    "-O",
+                    f"{self.PCC_code}_babel.pdb",
+                    "--minimize",
+                    "--cg",
+                    "--ff",
+                    "MMFF94",
+                    "--steps",
+                    "500",
+                ],
+                check=True,
+            )
             _, _, coords_new = _read_pdb(f"{self.PCC_code}_babel.pdb")
-            _write_coords_to_pdb(f"{self.PCC_code}.pdb", f"{self.PCC_code}_opt.pdb", coords_new[:self.n_atoms, ...])
+            _write_coords_to_pdb(
+                f"{self.PCC_code}.pdb",
+                f"{self.PCC_code}_opt.pdb",
+                coords_new[: self.n_atoms, ...],
+            )
 
         self._set_done(self.PCC_dir) # mark stage as done
         return None
