@@ -145,7 +145,7 @@ class PCCBuilder():
         self._set_done(self.PCC_dir) # mark stage as done
         return None
     
-    def _get_params(self, wait: bool = True) -> None:
+    def _get_params(self) -> None:
         """Generate GAFF parameters for the mutated PCC using ``acpype``.
 
         The procedure is carried out in several steps:
@@ -156,10 +156,6 @@ class PCCBuilder():
         3. Inspect ``PCC.acpype/acpype.log`` for the presence of the word
            ``warning``. Any warning triggers a ``RuntimeError`` because it
            indicates that the generated topology may contain incorrect bonds.
-
-        Args:
-            wait (bool, optional): Retained for backward compatibility; has no
-                effect as ``acpype`` now runs synchronously.
 
         Raises:
             RuntimeError: If ``acpype.log`` contains warnings suggesting the
@@ -200,17 +196,13 @@ class PCCBuilder():
         self._set_done(self.PCC_dir/"PCC.acpype")
         return None
     
-    def _minimize_PCC(self, wait: bool = True) -> None:
+    def _minimize_PCC(self) -> None:
         """Run energy minimization for the PCC using ``gmx`` commands.
 
         The method mirrors the behaviour of the previous ``sub_mdrun_em.sh``
         script directly in Python. It creates a solvated box, adds counter
         ions if necessary, performs energy minimization, and converts the
         minimized structure to ``{PCC_code}_em.pdb``.
-
-        Args:
-            wait (bool, optional): Retained for API compatibility. The
-                operations run synchronously and this flag has no effect.
 
         Returns:
             None

@@ -344,16 +344,12 @@ class FECalc():
         run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
         return None
     
-    def _eq_complex(self, wait: bool = True) -> None:
+    def _eq_complex(self) -> None:
         """Solvate and equilibrate the PCC–target complex.
 
         Energy minimization, NVT, and NPT simulations are run sequentially.
         After minimization, atom indices are updated and position restraint
         files are regenerated.
-
-        Args:
-            wait (bool, optional): Whether to wait for each simulation stage to
-                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -554,7 +550,7 @@ class FECalc():
 
         return None
 
-    def _pbmetaD(self, wait: bool = True) -> None:
+    def _pbmetaD(self) -> None:
         """Run parallel-bias metadynamics (PBMetaD) from the equilibrated structure.
 
         The method prepares PLUMED inputs with the correct atom IDs and
@@ -562,10 +558,6 @@ class FECalc():
         workflow automatically resumes from a checkpoint if one is detected,
         replicating the behaviour previously implemented in the
         ``sub_mdrun_plumed.sh`` helper script.
-
-        Args:
-            wait (bool, optional): Whether to wait for the PBMetaD run to
-                complete. Defaults to ``True``.
 
         Returns:
             None
@@ -701,7 +693,7 @@ class FECalc():
         self._set_done(self.complex_dir/'md')
         return None
     
-    def _reweight(self, wait: bool = True) -> None:
+    def _reweight(self) -> None:
         """Reweight the results of the PBMetaD run.
 
         This is achieved by using a ``plumed`` reweighting script that
@@ -709,10 +701,6 @@ class FECalc():
         PBMetaD simulation and creates a new COLVARS file with the converged
         values of bias which is used by ``postprocess`` to calculate the free
         energy.
-
-        Args:
-            wait (bool, optional): Whether to wait for the reweighting job to
-                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -742,10 +730,7 @@ class FECalc():
                 "-plumed", "reweight.dat", "-s", "../md/md.tpr",
                 "-rerun", "../md/md.xtc",
             ]
-            if wait:
-                run_gmx(cmd)
-            else:
-                subprocess.Popen(cmd)
+            run_gmx(cmd)
         self._set_done(self.complex_dir/'reweight')
         return None
 
