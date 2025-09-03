@@ -34,5 +34,6 @@ where = ["."]
 include = ["FECalc", "FECalc.*"]
 
 [tool.setuptools.package-data]
-"FECalc" = ["PCCBuilder_settings.JSON", "scripts/*.pdb"]
+"FECalc" = ["PCCBuilder_settings.JSON"]
+"FECalc.scripts" = ["*.pdb"]
 
