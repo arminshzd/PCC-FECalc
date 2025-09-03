@@ -132,13 +132,10 @@ class TargetMOL():
         self._set_done(self.base_dir / "MOL.acpype")
         return None
     
-    def _minimize_MOL(self, wait: bool = True) -> None: 
+    def _minimize_MOL(self) -> None:
         """
         Run minimization for MOL. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
         the structure. The final coordinates are converted from `em.gro` to `MOL_em.pdb`.
-
-        Args:
-            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
 
         Returns:
             None

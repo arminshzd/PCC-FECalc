@@ -36,7 +36,7 @@ def test_minimal_end_to_end(tmp_path, monkeypatch):
         self.complex_dir.mkdir(parents=True, exist_ok=True)
         (self.complex_dir / ".done").touch()
 
-    def fake_eq_complex(self, wait=True):
+    def fake_eq_complex(self):
         em_dir = self.complex_dir / "em"
         em_dir.mkdir(parents=True, exist_ok=True)
         em_dir.joinpath("em.gro").write_text(
@@ -48,7 +48,7 @@ def test_minimal_end_to_end(tmp_path, monkeypatch):
             sdir.mkdir(parents=True, exist_ok=True)
             (sdir / ".done").touch()
 
-    def fake_pbmetad(self, wait=True):
+    def fake_pbmetad(self):
         md_dir = self.complex_dir / "md"
         md_dir.mkdir(parents=True, exist_ok=True)
         md_dir.joinpath("md.gro").write_text(
@@ -59,7 +59,7 @@ def test_minimal_end_to_end(tmp_path, monkeypatch):
         md_dir.joinpath("GRID_cos").write_text("0\n")
         (md_dir / ".done").touch()
 
-    def fake_reweight(self, wait=True):
+    def fake_reweight(self):
         re_dir = self.complex_dir / "reweight"
         re_dir.mkdir(parents=True, exist_ok=True)
         re_dir.joinpath("COLVAR").write_text(
