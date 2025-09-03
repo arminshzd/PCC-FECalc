@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+from subprocess import CalledProcessError
 from pathlib import Path
 from datetime import datetime
 
@@ -227,7 +228,7 @@ class FECalc():
                 subprocess.run(["cp", f"{self.mold_dir}/complex/mix/run_packmol.sh", "."], check=True)
                 subprocess.run("bash -c 'source run_packmol.sh'", shell=True, check=True)
                 # check for complex.pdb
-                if not Path.exists(self.complex_dir/"complex.pdb"):
+                if not (self.complex_dir/"complex.pdb").exists():
                     raise RuntimeError(f"Packmol output not found. Check {self.complex_dir}.")
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
@@ -530,9 +531,11 @@ class FECalc():
     def _pbmetaD(self, wait: bool = True) -> None:
         """Run parallel-bias metadynamics (PBMetaD) from the equilibrated structure.
 
-        The method prepares PLUMED inputs with the correct atom IDs, submits
-        the PBMetaD job through ``sbatch``, and automatically resumes from a
-        checkpoint if one is detected.
+        The method prepares PLUMED inputs with the correct atom IDs and
+        executes the PBMetaD run directly using ``gmx`` and ``plumed``.  The
+        workflow automatically resumes from a checkpoint if one is detected,
+        replicating the behaviour previously implemented in the
+        ``sub_mdrun_plumed.sh`` helper script.
 
         Args:
             wait (bool, optional): Whether to wait for the PBMetaD run to
@@ -543,9 +546,14 @@ class FECalc():
         """
         # create complex/pbmetad dir
         Path.mkdir(self.complex_dir/"md", exist_ok=True)
-        with cd(self.complex_dir/"md"): # cd into complex/pbmetad
-            wait_str = " --wait " if wait else "" # whether to wait for pbmetad to finish before exiting
-            if Path.exists(self.complex_dir/"md"/"md.cpt"): # if there's a checkpoint, continue the run
+        with cd(self.complex_dir/"md"):  # cd into complex/pbmetad
+            # detect available resources from the environment (default to 1)
+            n_cpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
+            n_thr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+            n_nod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
+            np = n_cpu * n_thr * n_nod
+
+            if (self.complex_dir/"md"/"md.cpt").exists():  # if there's a checkpoint, continue the run
                 now = datetime.now()
                 now = now.strftime("%m/%d/%Y, %H:%M:%S")
                 print(f"{now}: Resuming previous run...", flush=True)
@@ -554,13 +562,13 @@ class FECalc():
                 subprocess.run("mv ./HILLS_COM ./HILLS_COM.bck.unk", shell=True, check=False)
                 subprocess.run(["cp", "./md.cpt", "./md.cpt.bck.unk"], check=True)
                 # check that all GRID files exist. If not replace them with backups.
-                if not Path.exists(self.complex_dir/"md"/"GRID_COM"):
+                if not (self.complex_dir/"md"/"GRID_COM").exists():
                     print(f"{now}: Missing GRID_COM file. Replacing with latest backup.", flush=True)
                     subprocess.run(["cp", "./bck.last.GRID_COM", "./GRID_COM"], check=True)
-                if not Path.exists(self.complex_dir/"md"/"GRID_cos"):
+                if not (self.complex_dir/"md"/"GRID_cos").exists():
                     print(f"{now}: Missing GRID_cos file. Replacing with latest backup.", flush=True)
                     subprocess.run(["cp", "./bck.last.GRID_cos", "./GRID_cos"], check=True)
-                if not Path.exists(self.complex_dir/"md"/"GRID_ang"):
+                if not (self.complex_dir/"md"/"GRID_ang").exists():
                     print(f"{now}: Missing GRID_ang file. Replacing with latest backup.", flush=True)
                     subprocess.run(["cp", "./bck.last.GRID_ang", "./GRID_ang"], check=True)
             else:
@@ -571,7 +579,6 @@ class FECalc():
                 subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", "../complex.itp", "."], check=True)
                 subprocess.run(["cp", "../npt/topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/md/sub_mdrun_plumed.sh", "."], check=True) # copy mdrun submission script
                 subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed.dat", "./plumed_temp.dat"], check=True) # copy pbmetad script
                 subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed_restart.dat", "./plumed_r_temp.dat"], check=True) # copy pbmetad script
                 # update PCC and MOL atom ids
@@ -588,7 +595,27 @@ class FECalc():
                 # set temperature and, if requested, the number of steps
                 self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
-                
+                # generate the binary input for the run
+                subprocess.run(
+                    [
+                        "gmx",
+                        "grompp",
+                        "-f",
+                        "md.mdp",
+                        "-c",
+                        "../npt/npt.gro",
+                        "-r",
+                        "../npt/npt.gro",
+                        "-t",
+                        "../npt/npt.cpt",
+                        "-p",
+                        "topol.top",
+                        "-o",
+                        "md.tpr",
+                    ],
+                    check=True,
+                )
+
             # submit pbmetad job with limited retries
             max_attempts = 5
             attempt = 0
@@ -605,15 +632,37 @@ class FECalc():
                     now = now.strftime("%m/%d/%Y, %H:%M:%S")
                     print(f"{now}: Resubmitting PBMetaD: ", end="", flush=True)
                 try:
-                    subprocess.run(
-                        f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_plumed.sh",
-                        check=True,
-                        shell=True,
-                    )
+                    if Path("md.cpt").exists():
+                        cmd = [
+                            "gmx",
+                            "mdrun",
+                            "-ntomp",
+                            str(np),
+                            "-s",
+                            "md.tpr",
+                            "-cpi",
+                            "md.cpt",
+                            "-deffnm",
+                            "md",
+                            "-plumed",
+                            "plumed_restart.dat",
+                        ]
+                    else:
+                        cmd = [
+                            "gmx",
+                            "mdrun",
+                            "-ntomp",
+                            str(np),
+                            "-deffnm",
+                            "md",
+                            "-plumed",
+                            "plumed.dat",
+                        ]
+                    subprocess.run(cmd, check=True)
                     if attempt > 0:
                         print()
                     break
-                except subprocess.CalledProcessError as e:
+                except CalledProcessError as e:
                     attempt += 1
                     if attempt >= max_attempts:
                         raise RuntimeError(
@@ -621,7 +670,7 @@ class FECalc():
                         ) from e
 
             # ensure workflow completed successfully
-            if not Path.exists(self.complex_dir/"md"/"md.gro"):
+            if not (self.complex_dir/"md"/"md.gro").exists():
                 raise RuntimeError("The PBMetaD run did not complete successfully. Check the PBMetaD directory for more information and rerun FECalc to continue or retry.")
     
         self._set_done(self.complex_dir/'md')
