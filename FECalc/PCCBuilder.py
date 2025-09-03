@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb
+from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb, run_gmx
 
 
 class PCCBuilder():
@@ -145,7 +145,7 @@ class PCCBuilder():
         self._set_done(self.PCC_dir) # mark stage as done
         return None
     
-    def _get_params(self, wait: bool = True) -> None:
+    def _get_params(self) -> None:
         """Generate GAFF parameters for the mutated PCC using ``acpype``.
 
         The procedure is carried out in several steps:
@@ -156,10 +156,6 @@ class PCCBuilder():
         3. Inspect ``PCC.acpype/acpype.log`` for the presence of the word
            ``warning``. Any warning triggers a ``RuntimeError`` because it
            indicates that the generated topology may contain incorrect bonds.
-
-        Args:
-            wait (bool, optional): Retained for backward compatibility; has no
-                effect as ``acpype`` now runs synchronously.
 
         Raises:
             RuntimeError: If ``acpype.log`` contains warnings suggesting the
@@ -200,17 +196,13 @@ class PCCBuilder():
         self._set_done(self.PCC_dir/"PCC.acpype")
         return None
     
-    def _minimize_PCC(self, wait: bool = True) -> None:
+    def _minimize_PCC(self) -> None:
         """Run energy minimization for the PCC using ``gmx`` commands.
 
         The method mirrors the behaviour of the previous ``sub_mdrun_em.sh``
         script directly in Python. It creates a solvated box, adds counter
         ions if necessary, performs energy minimization, and converts the
         minimized structure to ``{PCC_code}_em.pdb``.
-
-        Args:
-            wait (bool, optional): Retained for API compatibility. The
-                operations run synchronously and this flag has no effect.
 
         Returns:
             None
@@ -226,55 +218,41 @@ class PCCBuilder():
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
 
             # construct simulation box and solvate
-            subprocess.run(
-                f"gmx editconf -f {self.PCC_code}_GMX.gro -o {self.PCC_code}_box.gro -c -d 1.0 -bt cubic",
-                shell=True,
-                check=True,
+            run_gmx(
+                f"gmx editconf -f {self.PCC_code}_GMX.gro -o {self.PCC_code}_box.gro -c -d 1.0 -bt cubic"
             )
-            subprocess.run(
-                f"gmx solvate -cp {self.PCC_code}_box.gro -cs spc216.gro -o {self.PCC_code}_sol.gro -p topol.top",
-                shell=True,
-                check=True,
+            run_gmx(
+                f"gmx solvate -cp {self.PCC_code}_box.gro -cs spc216.gro -o {self.PCC_code}_sol.gro -p topol.top"
             )
 
             if self.charge != 0:
-                subprocess.run(
-                    f"gmx grompp -f ions.mdp -c {self.PCC_code}_sol.gro -p topol.top -o ions.tpr -maxwarn 2",
-                    shell=True,
-                    check=True,
+                run_gmx(
+                    f"gmx grompp -f ions.mdp -c {self.PCC_code}_sol.gro -p topol.top -o ions.tpr -maxwarn 2"
                 )
-                subprocess.run(
+                run_gmx(
                     f"gmx genion -s ions.tpr -o {self.PCC_code}_sol_ions.gro -p topol.top -pname NA -nname CL -neutral",
                     input="4\n",
                     text=True,
-                    shell=True,
-                    check=True,
                 )
                 start_conf = f"{self.PCC_code}_sol_ions.gro"
             else:
                 start_conf = f"{self.PCC_code}_sol.gro"
 
-            subprocess.run(
-                f"gmx grompp -f em.mdp -c {start_conf} -p topol.top -o em.tpr",
-                shell=True,
-                check=True,
+            run_gmx(
+                f"gmx grompp -f em.mdp -c {start_conf} -p topol.top -o em.tpr"
             )
 
             ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
             nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
             nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
             np_total = ncpu * nthr * nnod
-            subprocess.run(
-                f"gmx mdrun -ntomp {np_total} -deffnm em",
-                shell=True,
-                check=True,
+            run_gmx(
+                f"gmx mdrun -ntomp {np_total} -deffnm em"
             )
 
             # convert the resulting em.gro to the final minimized PDB
-            subprocess.run(
-                f"gmx editconf -f em.gro -o {self.PCC_code}_em.pdb",
-                shell=True,
-                check=True,
+            run_gmx(
+                f"gmx editconf -f em.gro -o {self.PCC_code}_em.pdb"
             )
 
         self._set_done(self.PCC_dir / "em")
