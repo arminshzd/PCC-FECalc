@@ -88,7 +88,20 @@ class FECalc():
         self.metad_height = float(kwargs.get("metad_height", 3.0))
         self.metad_pace = int(kwargs.get("metad_pace", 500))
         self.metad_bias_factor = float(kwargs.get("metad_bias_factor", 20))
-    
+
+    def _compute_np(self) -> int:
+        """Return total processor count from node, core and thread settings.
+
+        Missing attributes default to ``1`` to support partial mocks in testing.
+
+        Returns:
+            int: available processor count
+        """
+        nodes = getattr(self, "nodes", 1)
+        cores = getattr(self, "cores", 1)
+        threads = getattr(self, "threads", 1)
+        return nodes * cores * threads
+
     def _check_done(self, stage: Path) -> bool:
         """
         Check if a calculation stage has already been performed.
@@ -358,7 +371,7 @@ class FECalc():
             ]
         )
         # Determine number of threads
-        np = self.nodes * self.cores * self.threads
+        np = self._compute_np()
         # Run energy minimization
         run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
         return None
@@ -419,7 +432,7 @@ class FECalc():
                 self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # run NVT step previously handled by sub_mdrun_complex_nvt.sh
-                np = self.nodes * self.cores * self.threads
+                np = self._compute_np()
                 # assume required modules and GROMACS environment are preconfigured
                 run_gmx(
                     "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr"
@@ -449,7 +462,7 @@ class FECalc():
                 self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # run gromacs npt directly
-                np = self.nodes * self.cores * self.threads
+                np = self._compute_np()
                 run_gmx([
                     "gmx",
                     "grompp",
@@ -579,7 +592,7 @@ class FECalc():
         Path.mkdir(self.complex_dir/"md", exist_ok=True)
         with cd(self.complex_dir/"md"):  # cd into complex/pbmetad
             # detect available resources
-            np = self.nodes * self.cores * self.threads
+            np = self._compute_np()
 
             if (self.complex_dir/"md"/"md.cpt").exists():  # if there's a checkpoint, continue the run
                 now = datetime.now()
@@ -730,7 +743,7 @@ class FECalc():
             # remove temp plumed file
             subprocess.run(f"rm ./reweight_temp.dat", shell=True)
             # determine number of threads
-            np = self.nodes * self.cores * self.threads
+            np = self._compute_np()
             # run reweight job directly using gmx
             cmd = [
                 "gmx", "mdrun", "-ntomp", str(np),
