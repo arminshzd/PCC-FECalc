@@ -200,31 +200,84 @@ class PCCBuilder():
         self._set_done(self.PCC_dir/"PCC.acpype")
         return None
     
-    def _minimize_PCC(self, wait: bool = True) -> None: 
-        """
-        Run minimization for PCC. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
-        the structure. The last frame is saved as `PCC.gro`
+    def _minimize_PCC(self, wait: bool = True) -> None:
+        """Run energy minimization for the PCC using ``gmx`` commands.
+
+        The method mirrors the behaviour of the previous ``sub_mdrun_em.sh``
+        script directly in Python. It creates a solvated box, adds counter
+        ions if necessary, performs energy minimization, and converts the
+        minimized structure to ``{PCC_code}_em.pdb``.
 
         Args:
-            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
+            wait (bool, optional): Retained for API compatibility. The
+                operations run synchronously and this flag has no effect.
 
         Returns:
             None
         """
-        Path.mkdir(self.PCC_dir/"em", exist_ok=True)
-        with cd(self.PCC_dir/"em"): # cd into PCC/em
-            # copy acpype files into em dir
+        Path.mkdir(self.PCC_dir / "em", exist_ok=True)
+        with cd(self.PCC_dir / "em"):
+            # copy required topology and parameter files
             subprocess.run(["cp", "../PCC.acpype/PCC_GMX.gro", "."], check=True)
             subprocess.run(["cp", "../PCC.acpype/PCC_GMX.itp", "."], check=True)
             subprocess.run(["cp", "../PCC.acpype/posre_PCC.itp", "."], check=True)
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/topol.top", "."], check=True)
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
             subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/sub_mdrun_em.sh", "."], check=True) # copy mdrun submission script
-            # submit em job
-            wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_mdrun_em.sh PCC {self.charge}", check=True, shell=True)
-        self._set_done(self.PCC_dir/"em")
+
+            # construct simulation box and solvate
+            subprocess.run(
+                f"gmx editconf -f {self.PCC_code}_GMX.gro -o {self.PCC_code}_box.gro -c -d 1.0 -bt cubic",
+                shell=True,
+                check=True,
+            )
+            subprocess.run(
+                f"gmx solvate -cp {self.PCC_code}_box.gro -cs spc216.gro -o {self.PCC_code}_sol.gro -p topol.top",
+                shell=True,
+                check=True,
+            )
+
+            if self.charge != 0:
+                subprocess.run(
+                    f"gmx grompp -f ions.mdp -c {self.PCC_code}_sol.gro -p topol.top -o ions.tpr -maxwarn 2",
+                    shell=True,
+                    check=True,
+                )
+                subprocess.run(
+                    f"gmx genion -s ions.tpr -o {self.PCC_code}_sol_ions.gro -p topol.top -pname NA -nname CL -neutral",
+                    input="4\n",
+                    text=True,
+                    shell=True,
+                    check=True,
+                )
+                start_conf = f"{self.PCC_code}_sol_ions.gro"
+            else:
+                start_conf = f"{self.PCC_code}_sol.gro"
+
+            subprocess.run(
+                f"gmx grompp -f em.mdp -c {start_conf} -p topol.top -o em.tpr",
+                shell=True,
+                check=True,
+            )
+
+            ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
+            nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+            nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
+            np_total = ncpu * nthr * nnod
+            subprocess.run(
+                f"gmx mdrun -ntomp {np_total} -deffnm em",
+                shell=True,
+                check=True,
+            )
+
+            # convert the resulting em.gro to the final minimized PDB
+            subprocess.run(
+                f"gmx editconf -f em.gro -o {self.PCC_code}_em.pdb",
+                shell=True,
+                check=True,
+            )
+
+        self._set_done(self.PCC_dir / "em")
         return None
 
     def create(self) -> tuple:
