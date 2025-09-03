@@ -132,10 +132,10 @@ def test_get_params_prep_pdb_called_and_log_checked(tmp_path, monkeypatch):
     monkeypatch.setattr(pccb, "subprocess", SimpleNamespace(run=fake_run))
     monkeypatch.setattr(pccb, "cd", dummy_cd)
 
-    builder._get_params(wait=False)
+    builder._get_params()
 
     assert prep_args == [(f"{builder.PCC_code}_opt.pdb", f"{builder.PCC_code}_acpype.pdb", "PCC")]
-    assert any("sub_acpype.sh" in str(c) for c in calls)
+    assert any("acpype" in str(c) for c in calls)
     assert (acpype_dir / ".done").exists()
 
 
