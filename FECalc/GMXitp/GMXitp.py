@@ -25,7 +25,7 @@ class GMXitp():
         end_line = None
 
         for i, line in enumerate(itp_cnt): # get the starting lines first
-            if re.search("\[.*[a-z]+.*\]", line):
+            if re.search(r"\[.*[a-z]+.*\]", line):
                 title = "".join(line.split())
                 title = title[1:-1]
                 if not(start_line is None):
