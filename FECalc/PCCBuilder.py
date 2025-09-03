@@ -8,22 +8,25 @@ from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb
 
 
 class PCCBuilder():
-    """
-    Class to generate the PCC from the master PCC structure. Then `AMBER` parameters
-    are generated for the new PCC using `acpype`. New PCC is then solvated and equilibrated.
+    """Construct and minimize peptide-based core conjugates (PCCs).
+
+    The resulting peptides are composed of D-amino acids and serve as the
+    scaffold for the PCC. The class mutates a reference PCC structure to match a
+    desired amino-acid sequence, generates force-field parameters using
+    ``acpype`` and produces an equilibrated peptide ready to be combined with a
+    target molecule.
     """
 
     def __init__(self, pcc: str, base_dir: Path, settings_json: Path) -> None:
-        """
-        Setup the PCCBuilder directories
-    
+        """Initialize builder and create working directories.
+
         Args:
-            pcc (str): single letter string of AAs, ordered from arm to bead on the PCC structure.
-            base_dir (Path): directory to store the calculations
-            settings_json (Path): directory of settings.JSON file
+            pcc (str): Amino-acid sequence (single-letter code) from arm to bead.
+            base_dir (Path): Directory in which calculation files will be stored.
+            settings_json (Path): Path to a JSON file with build settings.
 
         Raises:
-            ValueError: Raises Value error if `base_dir` is not a directory.
+            ValueError: If ``base_dir`` exists and is not a directory.
         """
         self.PCC_code = pcc
         now = datetime.now()
@@ -99,8 +102,12 @@ class PCCBuilder():
         return None
 
     def _create_pcc(self) -> None:
-        """
-        Call `PCCmold.py` through `pymol` to mutate all residues in the refrence PCC to create the new PCC.
+        """Generate the mutated PCC structure using PyMOL.
+
+        The reference PCC is mutated residue-by-residue through the auxiliary
+        ``PCCmold.py`` script. Residues are converted to their D-amino acid
+        counterparts, and a short pre-optimization step removes clashes
+        introduced by the mutations.
 
         Returns:
             None
@@ -125,11 +132,28 @@ class PCCBuilder():
         return None
     
     def _get_params(self, wait: bool = True) -> None:
-        """
-        Run acpype on the mutated `PCC.pdb` file. Submits a job to the cluster.
+        """Generate GAFF parameters for the PCC using ``acpype``.
+
+        The method performs the following steps:
+
+        1. Copy the ``sub_acpype.sh`` submission script into the PCC working
+           directory.
+        2. Convert the optimized PCC structure into a single-residue PDB so
+           that ``acpype`` can assign parameters.
+        3. Launch ``acpype`` through the submission script. When ``wait`` is
+           ``True`` the call blocks until the job finishes.
+        4. Inspect ``PCC.acpype/acpype.log`` for any warnings. If the log
+           contains the word ``warning`` (case insensitive) a ``RuntimeError``
+           is raised because ``acpype`` likely produced an inconsistent bonded
+           topology.
 
         Args:
-            wait (bool, optional): Whether to wait for acpype to finish. Defaults to True.
+            wait (bool, optional): Whether to block until ``acpype`` finishes.
+                Defaults to ``True``.
+
+        Raises:
+            RuntimeError: If the ``acpype`` log contains warnings that may
+                indicate incorrect topology generation.
 
         Returns:
             None
@@ -155,13 +179,16 @@ class PCCBuilder():
         self._set_done(self.PCC_dir/"PCC.acpype")
         return None
     
-    def _minimize_PCC(self, wait: bool = True) -> None: 
-        """
-        Run minimization for PCC. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
-        the structure. The last frame is saved as `PCC.gro`
+    def _minimize_PCC(self, wait: bool = True) -> None:
+        """Solvate and minimize the PCC structure.
+
+        Acpype-generated topology files are combined with a solvent box and the
+        system is minimized using GROMACS. The equilibrated structure
+        ``PCC.gro`` is saved for subsequent complex assembly.
 
         Args:
-            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for the minimization to
+                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -183,7 +210,7 @@ class PCCBuilder():
         return None
 
     def create(self) -> tuple:
-        """Wrapper for building PCC structures.
+        """Run the full peptide construction workflow.
 
         Returns:
             None

@@ -145,10 +145,11 @@ class FECalc():
         return None
         
     def _fix_posre(self) -> None:
-        """
-        Fix atom ids in position restraint files. Read the new ids from the `em.gro` file
-        AFTER minimization and writes posre_MOL.itp and posre_PCC.itp.
-        atoms.
+        """Regenerate position restraints using updated atom indices.
+
+        Reads atom indices from the minimized ``em.gro`` structure and rewrites
+        ``posre_MOL.itp`` and ``posre_PCC.itp`` so that restraints apply to the
+        correct atoms after mixing.
 
         Returns:
             None
@@ -405,12 +406,16 @@ class FECalc():
         return None
 
     def _pbmetaD(self, wait: bool = True) -> None:
-        """
-        Run PBMetaD from equilibrated structure.
+        """Run Parallel Bias Metadynamics on the equilibrated complex.
+
+        PBMetaD enhances sampling by depositing Gaussian bias potentials along
+        predefined collective variables (CVs). The resulting history-dependent
+        bias reconstructs the underlying free-energy surface. The simulation can
+        be resumed from checkpoints and optionally blocks until completion.
 
         Args:
-            rot_key: (int): Which side of the PCC to run.
-            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for the job to finish.
+                Defaults to ``True``.
 
         Returns:
             None
@@ -502,12 +507,19 @@ class FECalc():
         return None
     
     def _reweight(self, wait: bool = True) -> None:
-        """
-        Reweight the results of the pbmetad run.
+        """Reweight biased trajectories to recover unbiased observables.
+
+        The method applies the final metadynamics bias to generate a
+        probability distribution for the collective variables free from the
+        influence of the adaptive bias potential. This is achieved by using a
+        ``plumed`` reweighting script that recalculates the final, converged
+        biased using the grid files from the PBMetaD simulation and creates a
+        new COLVARS file with the converged values of bias which is used by
+        ``postprocess`` to calculate the free energy.
 
         Args:
-            rot_key: (int): Which side of the PCC to run.
-            wait (bool, optional): Whether or not to wait for the sims to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for the reweighting job to
+                complete. Defaults to ``True``.
 
         Returns:
             None

@@ -1,3 +1,7 @@
+import pytest
+
+pytest.skip("Example script", allow_module_level=True)
+
 from datetime import datetime
 from pathlib import Path
 import json

@@ -8,15 +8,20 @@ from .utils import cd, _prep_pdb
 
 
 class TargetMOL():
-    """_summary_
+    """Prepare and minimize the small-molecule ligand.
+
+    The class wraps all steps required to parameterize a target molecule using
+    `acpype` and to generate equilibrated structures that can be merged with a
+    peptide for free energy calculations.
     """
+
     def __init__(self, settings_json: Path) -> None:
-        """_summary_
+        """Initialize the target molecule builder.
 
         Args:
-            target_name (str): name of the target molecule
-            base_dir (Path): _description_
-            settings_json (Path): _description_
+            settings_json (Path): Path to a JSON file describing the target
+                molecule, including the input structure and force-field
+                parameters.
         """
 
         with open(Path(settings_json)) as f:
@@ -87,12 +92,12 @@ class TargetMOL():
         done_file.touch()
         return None
     
-    def _get_params(self, wait: bool = True) -> None: 
-        """
-        Run acpype on the MOL pdb file. Submits a job to the cluster.
+    def _get_params(self, wait: bool = True) -> None:
+        """Generate GAFF parameters using `acpype`.
 
         Args:
-            wait (bool, optional): Whether to wait for acpype to finish. Defaults to True.
+            wait (bool, optional): Whether to wait for ``acpype`` to finish.
+                Defaults to ``True``.
 
         Returns:
             None
@@ -123,13 +128,16 @@ class TargetMOL():
         self._set_done(self.base_dir/"MOL.acpype")
         return None
     
-    def _minimize_MOL(self, wait: bool = True) -> None: 
-        """
-        Run minimization for MOL. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
-        the structure. The last frame is saved as `MOL.gro`
+    def _minimize_MOL(self, wait: bool = True) -> None:
+        """Minimize and solvate the target molecule.
+
+        The method sets up a GROMACS ``em`` directory containing a solvated
+        target molecule and performs an energy minimization. The resulting
+        structure ``MOL.gro`` is used as input for complex construction.
 
         Args:
-            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
+            wait (bool, optional): Whether to block until minimization
+                finishes. Defaults to ``True``.
 
         Returns:
             None
@@ -153,20 +161,30 @@ class TargetMOL():
 
         return None
     
-    def _export(self):
+    def _export(self) -> None:
+        """Collect minimized files for later use in complex preparation.
+
+        Copies the finalized topology and coordinate files into an ``export``
+        directory. This directory layout mirrors that of the peptide builder
+        to simplify downstream workflows.
+
+        Returns:
+            None
+        """
         Path.mkdir(self.base_dir/"export", exist_ok=True)
-        with cd(self.base_dir/"export"): # cd into export
+        with cd(self.base_dir/"export"):
             subprocess.run(["cp", "../em/MOL_GMX.itp", "./MOL.itp"], check=True)
             subprocess.run(["cp", "../em/posre_MOL.itp", "."], check=True)
             subprocess.run(["cp", "../em/MOL_em.pdb", "./MOL.pdb"], check=True)
         self._set_done(self.base_dir/"export")
 
     def create(self) -> None:
-        # Check this first incase the simulations were run in a different
-        # directory and we are only pointing to the results.
+        """Run the full preparation workflow for the target molecule."""
+        # Check this first in case the simulations were run elsewhere and we
+        # are only pointing to the results.
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
-        if not self._check_done(self.base_dir/'export'):
+        if not self._check_done(self.base_dir/"export"):
             print(f"{now}: Getting gaff parameters: ", flush=True)
             if not self._check_done(self.base_dir/"MOL.acpype"):
                 self._get_params()
@@ -175,7 +193,7 @@ class TargetMOL():
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
             print(f"{now}: Minimizing MOL: ", end="", flush=True)
-            if not self._check_done(self.base_dir/'em'):
+            if not self._check_done(self.base_dir/"em"):
                 self._minimize_MOL()
             print("\tDone.", flush=True)
             # create `export` folder
@@ -190,5 +208,5 @@ class TargetMOL():
             print(f"{now}: All steps completed.")
         else:
             print(f"{now}: Target molecule loaded from previous calculations.")
-        print("-"*30 + "Finished" + "-"*30)
+        print("-" * 30 + "Finished" + "-" * 30)
         return None
