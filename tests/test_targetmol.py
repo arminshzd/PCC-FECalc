@@ -205,11 +205,10 @@ def test_minimize_mol_copies_files_and_runs(tmp_path, monkeypatch, wait_flag):
     em_dir = tm.base_dir / "em"
     assert (em_dir / "MOL_GMX.gro").exists()
     assert "MOL" in (em_dir / "topol.top").read_text()
-    sbatch_cmd = [c for c in commands if isinstance(c, str) and c.startswith("sbatch")][0]
-    if wait_flag:
-        assert "--wait" in sbatch_cmd
-    else:
-        assert "--wait" not in sbatch_cmd
+    assert any(c.startswith("gmx editconf") for c in commands)
+    assert any(c.startswith("gmx mdrun") for c in commands)
+    assert any(c.startswith("gmx trjconv") for c in commands)
+    assert not any("sbatch" in c for c in commands)
     assert (em_dir / ".done").exists()
 
 
