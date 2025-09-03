@@ -102,8 +102,8 @@ def test_mix_raises_when_complex_pdb_missing(tmp_path, monkeypatch):
     fe.target_dir.mkdir()
     fe.PCC_dir = tmp_path / "pcc"
     fe.PCC_dir.mkdir()
-    fe.mold_dir = tmp_path / "mold"
-    fe.mold_dir.mkdir()
+    fe.script_dir = tmp_path / "scripts"
+    fe.script_dir.mkdir()
     fe._check_done = lambda stage: False
     fe._set_done = lambda stage: None
     fe.pcc = SimpleNamespace(PCC_code="CODE")
@@ -126,8 +126,8 @@ def test_eq_complex_propagates_missing_em_gro(tmp_path, monkeypatch):
     fe = FECalc.__new__(FECalc)
     fe.complex_dir = tmp_path / "complex"
     fe.complex_dir.mkdir()
-    fe.mold_dir = tmp_path / "mold"
-    fe.mold_dir.mkdir(parents=True, exist_ok=True)
+    fe.script_dir = tmp_path / "scripts"
+    fe.script_dir.mkdir(parents=True, exist_ok=True)
     fe.pcc = SimpleNamespace(PCC_code="CODE", charge=0)
     fe.MOL_list = []
     fe.PCC_charge = 0
@@ -147,8 +147,8 @@ def test_pbmetad_raises_when_md_gro_missing(tmp_path, monkeypatch):
     fe = FECalc.__new__(FECalc)
     fe.complex_dir = tmp_path / "complex"
     fe.complex_dir.mkdir()
-    fe.mold_dir = tmp_path / "mold"
-    fe.mold_dir.mkdir()
+    fe.script_dir = tmp_path / "scripts"
+    fe.script_dir.mkdir()
     fe.pcc = SimpleNamespace(PCC_code="CODE")
     fe.PCC_charge = 0
     fe.metad_bias_factor = 1
@@ -171,8 +171,8 @@ def test_reweight_propagates_subprocess_error(tmp_path, monkeypatch):
     fe.complex_dir = tmp_path / "complex"
     md_dir = fe.complex_dir / "md"
     md_dir.mkdir(parents=True, exist_ok=True)
-    fe.mold_dir = tmp_path / "mold"
-    fe.mold_dir.mkdir()
+    fe.script_dir = tmp_path / "scripts"
+    fe.script_dir.mkdir()
     fe._create_plumed = lambda *args, **kwargs: None
     fe._set_done = lambda stage: None
     fe.pcc = SimpleNamespace(PCC_code="CODE")

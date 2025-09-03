@@ -31,7 +31,8 @@ class TargetMOL():
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Building and minimizing structure for {self.name} (PID: {os.getpid()})")
         
-        self.mold_dir = Path(__file__).parent / Path("mold")
+        # directory with template and helper files
+        self.script_dir = Path(__file__).parent / "scripts"
 
         output_dir = self.settings.get("output_dir")
         if not output_dir:
@@ -146,9 +147,9 @@ class TargetMOL():
             subprocess.run(["cp", "../MOL.acpype/MOL_GMX.gro", "."], check=True)
             subprocess.run(["cp", "../MOL.acpype/MOL_GMX.itp", "."], check=True)
             subprocess.run(["cp", "../MOL.acpype/posre_MOL.itp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/topol.top", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/topol.top", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/ions.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/em.mdp", "."], check=True)
             # fix topol.top
             subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
 
