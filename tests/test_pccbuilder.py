@@ -94,7 +94,11 @@ def test_create_pcc_runs_pymol_and_marks_done(tmp_path, monkeypatch):
     builder._create_pcc()
 
     assert any("PCCmold.py" in str(c) for c in calls)
-    assert any("sub_preopt.sh" in str(c) for c in calls)
+    assert any(
+        (isinstance(c, (list, tuple)) and c and c[0] == "obabel")
+        or "obabel" in str(c)
+        for c in calls
+    )
     assert written["coords"].shape == (3, 3)
     assert (builder.PCC_dir / ".done").exists()
 
