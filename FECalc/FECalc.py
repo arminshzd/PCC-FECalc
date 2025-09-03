@@ -402,7 +402,6 @@ class FECalc():
                 subprocess.run(["cp", "../posre_MOL.itp", "."], check=True)
                 subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", "../em/topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/sub_mdrun_complex_nvt.sh", "."], check=True) # copy mdrun submission script
                 # copy nvt.mdp into nvt
                 if self.PCC_charge != 0:
                     subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt.mdp", "./nvt_temp.mdp"], check=True)
@@ -411,9 +410,22 @@ class FECalc():
                 # set temperature
                 self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
-                # submit nvt job
-                wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_nvt.sh", check=True, shell=True)
+                # run NVT step previously handled by sub_mdrun_complex_nvt.sh
+                ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", "1") or 1)
+                nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", "1") or 1)
+                nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", "1") or 1)
+                np = ncpu * nthr * nnod
+                # assume required modules and GROMACS environment are preconfigured
+                subprocess.run(
+                    "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr",
+                    shell=True,
+                    check=True,
+                )
+                subprocess.run(
+                    f"gmx mdrun -ntomp {np} -deffnm nvt",
+                    shell=True,
+                    check=True,
+                )
             self._set_done(self.complex_dir/'nvt')
         ## NPT
         if not self._check_done(self.complex_dir/"npt"):
