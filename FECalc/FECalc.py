@@ -16,7 +16,19 @@ class FECalc():
     in solution, runs parallel-bias metadynamics (PBMetaD), and prepares the
     output for free-energy analysis.
     """
-    def __init__(self, pcc, target, base_dir: Path, temp: float, box: float, **kwargs) -> None:
+    def __init__(
+        self,
+        pcc,
+        target,
+        base_dir: Path,
+        temp: float,
+        box: float,
+        *,
+        nodes: int = 1,
+        cores: int = 1,
+        threads: int = 1,
+        **kwargs,
+    ) -> None:
         """
         Setup the base, PCC, and complex directories, and locate the target molecule files.
     
@@ -26,6 +38,9 @@ class FECalc():
             base_dir (Path): directory to store the calculations
             temp (float): Temperature of the simulations
             box (float): Size of the simulation box
+            nodes (int, optional): number of nodes. Defaults to ``1``.
+            cores (int, optional): cores per node. Defaults to ``1``.
+            threads (int, optional): threads per core. Defaults to ``1``.
 
         Raises:
             ValueError: Raises Value error if `base_dir` is not a directory.
@@ -62,6 +77,11 @@ class FECalc():
         self.T = float(temp)
         self.KbT = 8.314 * self.T
         self.box_size = float(box)
+
+        # hardware settings
+        self.nodes = int(nodes)
+        self.cores = int(cores)
+        self.threads = int(threads)
 
         # MetaD setup
         self.n_steps = int(kwargs.get("n_steps", 400000000))
@@ -338,10 +358,7 @@ class FECalc():
             ]
         )
         # Determine number of threads
-        ncpu = int(os.getenv("SLURM_NTASKS_PER_NODE", "1"))
-        nthr = int(os.getenv("SLURM_CPUS_PER_TASK", "1"))
-        nnod = int(os.getenv("SLURM_JOB_NUM_NODES", "1"))
-        np = ncpu * nthr * nnod
+        np = self.nodes * self.cores * self.threads
         # Run energy minimization
         run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
         return None
@@ -402,10 +419,7 @@ class FECalc():
                 self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # run NVT step previously handled by sub_mdrun_complex_nvt.sh
-                ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", "1") or 1)
-                nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", "1") or 1)
-                nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", "1") or 1)
-                np = ncpu * nthr * nnod
+                np = self.nodes * self.cores * self.threads
                 # assume required modules and GROMACS environment are preconfigured
                 run_gmx(
                     "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr"
@@ -435,10 +449,7 @@ class FECalc():
                 self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # run gromacs npt directly
-                n_cpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
-                n_thr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-                n_nod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
-                np = n_cpu * n_thr * n_nod
+                np = self.nodes * self.cores * self.threads
                 run_gmx([
                     "gmx",
                     "grompp",
@@ -567,11 +578,8 @@ class FECalc():
         # create complex/pbmetad dir
         Path.mkdir(self.complex_dir/"md", exist_ok=True)
         with cd(self.complex_dir/"md"):  # cd into complex/pbmetad
-            # detect available resources from the environment (default to 1)
-            n_cpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
-            n_thr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-            n_nod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
-            np = n_cpu * n_thr * n_nod
+            # detect available resources
+            np = self.nodes * self.cores * self.threads
 
             if (self.complex_dir/"md"/"md.cpt").exists():  # if there's a checkpoint, continue the run
                 now = datetime.now()
@@ -722,10 +730,7 @@ class FECalc():
             # remove temp plumed file
             subprocess.run(f"rm ./reweight_temp.dat", shell=True)
             # determine number of threads
-            ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
-            nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-            nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
-            np = ncpu * nthr * nnod
+            np = self.nodes * self.cores * self.threads
             # run reweight job directly using gmx
             cmd = [
                 "gmx", "mdrun", "-ntomp", str(np),

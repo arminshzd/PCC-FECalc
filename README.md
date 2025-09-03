@@ -79,6 +79,12 @@ The settings file for this step should be created by the user. An example is pro
 
 The optional entries are:
 
+- `scheduler`: Scheduler used to allocate hardware resources. Supported
+  options are `"local"` (default), `"slurm"`, `"pbs"`, and `"lsf"`.
+- `nodes`, `cores`, `threads`: Hardware layout overrides for the number of
+  nodes, cores per node, and threads per core. Defaults to ``1`` for each
+  value; scheduler environment variables take precedence. These counts are
+  used to set the correct `-ntomp` for GROMACS.
 - `metad_settings`: Parameters of the metadynamics simulation
   - `n_steps`: Number of steps for the metadynamics run. 2 fs step size. defaults to 800 ns.
   - `metad_height`: Height of the deposited Guassians. Defaults to 3.0 kJ/mol.

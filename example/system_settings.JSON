@@ -5,6 +5,10 @@
     "complex_output_dir": "/path/to/complex_output_dir",
     "temperature": 300,
     "box_size": 5.0,
+    "scheduler": "local",
+    "nodes": 1,
+    "cores": 1,
+    "threads": 1,
     "metad_settings": {
         "n_steps": 400000000,
         "metad_height": 3.0,

@@ -6,6 +6,52 @@ from subprocess import CalledProcessError
 
 import numpy as np
 
+
+def set_hw_env(
+    scheduler: str, nodes: int, cores: int, threads: int
+) -> tuple[int, int, int]:
+    """Resolve hardware settings for various job schedulers.
+
+    Parameters
+    ----------
+    scheduler : str
+        Name of the scheduler (e.g. ``"slurm"``, ``"pbs"``, ``"lsf"``,
+        ``"local"``).
+    nodes : int
+        Default number of nodes requested.
+    cores : int
+        Default number of cores per node.
+    threads : int
+        Default number of threads per core.
+
+    Returns
+    -------
+    tuple[int, int, int]
+        Resolved ``(nodes, cores, threads)`` based on environment variables
+        for the given scheduler. The environment is not modified.
+    """
+
+    scheduler = (scheduler or "local").lower()
+
+    if scheduler == "slurm":
+        nodes = int(os.getenv("SLURM_JOB_NUM_NODES", nodes))
+        cores = int(os.getenv("SLURM_NTASKS_PER_NODE", cores))
+        threads = int(os.getenv("SLURM_CPUS_PER_TASK", threads))
+    elif scheduler in {"pbs", "torque"}:
+        nodes = int(os.getenv("PBS_NUM_NODES", nodes))
+        cores = int(os.getenv("PBS_NUM_PPN", cores))
+        threads = int(os.getenv("OMP_NUM_THREADS", threads))
+    elif scheduler == "lsf":
+        total = int(os.getenv("LSB_DJOB_NUMPROC", nodes * cores * threads))
+        nodes = int(os.getenv("LSB_MAX_NUM_PROCESSORS", nodes))
+        cores = total // max(nodes, 1)
+        threads = int(os.getenv("OMP_NUM_THREADS", threads))
+    else:  # local fallback uses provided defaults
+        pass
+
+    return nodes, cores, threads
+
+
 def _read_pdb(fname):
     """Read residue names, atom names, and coordinates from a PDB file.
 
