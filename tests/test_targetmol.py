@@ -163,8 +163,7 @@ def test_get_params_raises_on_warning(tmp_path, monkeypatch):
         tm._get_params()
 
 
-@pytest.mark.parametrize("wait_flag", [True, False])
-def test_minimize_mol_copies_files_and_runs(tmp_path, monkeypatch, wait_flag):
+def test_minimize_mol_copies_files_and_runs(tmp_path, monkeypatch):
     tm = _init_target(tmp_path)
 
     # set up acpype files
@@ -200,7 +199,7 @@ def test_minimize_mol_copies_files_and_runs(tmp_path, monkeypatch, wait_flag):
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    tm._minimize_MOL(wait=wait_flag)
+    tm._minimize_MOL()
 
     em_dir = tm.base_dir / "em"
     assert (em_dir / "MOL_GMX.gro").exists()
@@ -251,7 +250,7 @@ def test_create_runs_stages_conditionally(tmp_path, monkeypatch):
         calls.append("get")
         self._set_done(self.base_dir / "MOL.acpype")
 
-    def fake_minimize(self, wait=True):
+    def fake_minimize(self):
         calls.append("min")
         self._set_done(self.base_dir / "em")
 

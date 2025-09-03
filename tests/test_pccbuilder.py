@@ -191,7 +191,7 @@ def test_minimize_pcc_runs_and_marks_done(tmp_path, monkeypatch):
     monkeypatch.setattr(pccb, "subprocess", SimpleNamespace(run=fake_run))
     monkeypatch.setattr(pccb, "cd", dummy_cd)
 
-    builder._minimize_PCC(wait=False)
+    builder._minimize_PCC()
 
     assert any("gmx mdrun" in str(c) for c in calls)
     assert any(
