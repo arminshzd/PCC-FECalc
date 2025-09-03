@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .GMXitp.GMXitp import GMXitp
-from .utils import cd
+from .utils import cd, run_gmx
 
 class FECalc():
     """Compute PCC–target binding free energies via PBMetaD simulations.
@@ -249,7 +249,7 @@ class FECalc():
             None
         """
         # Create box
-        subprocess.run(
+        run_gmx(
             [
                 "gmx",
                 "editconf",
@@ -262,11 +262,10 @@ class FECalc():
                 "cubic",
                 "-box",
                 str(self.box_size),
-            ],
-            check=True,
+            ]
         )
         # Solvate
-        subprocess.run(
+        run_gmx(
             [
                 "gmx",
                 "solvate",
@@ -278,12 +277,11 @@ class FECalc():
                 "complex_sol.gro",
                 "-p",
                 "topol.top",
-            ],
-            check=True,
+            ]
         )
         # Neutralize and prepare EM input
         if self.PCC_charge != 0:
-            subprocess.run(
+            run_gmx(
                 [
                     "gmx",
                     "grompp",
@@ -297,10 +295,9 @@ class FECalc():
                     "ions.tpr",
                     "-maxwarn",
                     "2",
-                ],
-                check=True,
+                ]
             )
-            subprocess.run(
+            run_gmx(
                 [
                     "gmx",
                     "genion",
@@ -318,12 +315,11 @@ class FECalc():
                 ],
                 input="5\n",
                 text=True,
-                check=True,
             )
             grompp_input = "complex_sol_ions.gro"
         else:
             grompp_input = "complex_sol.gro"
-        subprocess.run(
+        run_gmx(
             [
                 "gmx",
                 "grompp",
@@ -337,8 +333,7 @@ class FECalc():
                 "em.tpr",
                 "-maxwarn",
                 "1",
-            ],
-            check=True,
+            ]
         )
         # Determine number of threads
         ncpu = int(os.getenv("SLURM_NTASKS_PER_NODE", "1"))
@@ -346,9 +341,7 @@ class FECalc():
         nnod = int(os.getenv("SLURM_JOB_NUM_NODES", "1"))
         np = ncpu * nthr * nnod
         # Run energy minimization
-        subprocess.run(
-            ["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"], check=True
-        )
+        run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
         return None
     
     def _eq_complex(self) -> None:
@@ -412,15 +405,11 @@ class FECalc():
                 nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", "1") or 1)
                 np = ncpu * nthr * nnod
                 # assume required modules and GROMACS environment are preconfigured
-                subprocess.run(
-                    "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr",
-                    shell=True,
-                    check=True,
+                run_gmx(
+                    "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr"
                 )
-                subprocess.run(
-                    f"gmx mdrun -ntomp {np} -deffnm nvt",
-                    shell=True,
-                    check=True,
+                run_gmx(
+                    f"gmx mdrun -ntomp {np} -deffnm nvt"
                 )
             self._set_done(self.complex_dir/'nvt')
         ## NPT
@@ -448,7 +437,7 @@ class FECalc():
                 n_thr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
                 n_nod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
                 np = n_cpu * n_thr * n_nod
-                subprocess.run([
+                run_gmx([
                     "gmx",
                     "grompp",
                     "-f",
@@ -463,15 +452,15 @@ class FECalc():
                     "topol.top",
                     "-o",
                     "npt.tpr",
-                ], check=True)
-                subprocess.run([
+                ])
+                run_gmx([
                     "gmx",
                     "mdrun",
                     "-ntomp",
                     str(np),
                     "-deffnm",
                     "npt",
-                ], check=True)
+                ])
             self._set_done(self.complex_dir/'npt')
         return
 
@@ -625,7 +614,7 @@ class FECalc():
                 self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
                 # generate the binary input for the run
-                subprocess.run(
+                run_gmx(
                     [
                         "gmx",
                         "grompp",
@@ -641,8 +630,7 @@ class FECalc():
                         "topol.top",
                         "-o",
                         "md.tpr",
-                    ],
-                    check=True,
+                    ]
                 )
 
             # submit pbmetad job with limited retries
@@ -687,11 +675,11 @@ class FECalc():
                             "-plumed",
                             "plumed.dat",
                         ]
-                    subprocess.run(cmd, check=True)
+                    run_gmx(cmd)
                     if attempt > 0:
                         print()
                     break
-                except CalledProcessError as e:
+                except RuntimeError as e:
                     attempt += 1
                     if attempt >= max_attempts:
                         raise RuntimeError(
@@ -742,7 +730,7 @@ class FECalc():
                 "-plumed", "reweight.dat", "-s", "../md/md.tpr",
                 "-rerun", "../md/md.xtc",
             ]
-            subprocess.run(cmd, check=True)
+            run_gmx(cmd)
         self._set_done(self.complex_dir/'reweight')
         return None
 

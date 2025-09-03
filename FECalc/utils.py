@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+import subprocess
+import inspect
+from subprocess import CalledProcessError
 
 import numpy as np
 
@@ -116,4 +119,49 @@ class cd:
     def __exit__(self, etype, value, traceback):
         """Return to the original working directory."""
         os.chdir(self.savedPath)
+
+
+def run_gmx(cmd, **kwargs):
+    """Run a ``gmx`` command with improved error reporting.
+
+    Parameters
+    ----------
+    cmd : list or str
+        Command passed to :func:`subprocess.run`.  If a string is provided it
+        is executed with ``shell=True``.
+    **kwargs : dict
+        Additional keyword arguments forwarded to ``subprocess.run``.
+
+    Raises
+    ------
+    RuntimeError
+        If the command exits with a non-zero status.  The raised error includes
+        the command, stdout and stderr to aid debugging.
+    """
+
+    kwargs.setdefault("check", True)
+    kwargs.setdefault("text", True)
+    kwargs.setdefault("capture_output", True)
+
+    if isinstance(cmd, str):
+        kwargs.setdefault("shell", True)
+
+    subprocess_module = kwargs.pop("subprocess_module", None)
+    if subprocess_module is None:
+        frame = inspect.currentframe().f_back
+        subprocess_module = frame.f_globals.get("subprocess", subprocess)
+
+    try:
+        return subprocess_module.run(cmd, **kwargs)
+    except CalledProcessError as e:
+        cmd_str = e.cmd if isinstance(e.cmd, str) else " ".join(e.cmd)
+        stdout = e.stdout.strip() if e.stdout else ""
+        stderr = e.stderr.strip() if e.stderr else ""
+        msg = f"Command '{cmd_str}' failed with code {e.returncode}."
+        if stdout:
+            msg += f"\nSTDOUT:\n{stdout}"
+        if stderr:
+            msg += f"\nSTDERR:\n{stderr}"
+        raise RuntimeError(msg) from e
+
 
