@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from .utils import cd, _prep_pdb
+from .utils import cd, _prep_pdb, run_gmx
 
 
 class TargetMOL():
@@ -41,7 +41,8 @@ class TargetMOL():
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Building and minimizing structure for {self.name} (PID: {os.getpid()})")
         
-        self.mold_dir = Path(__file__).parent / Path("mold")
+        # directory with template and helper files
+        self.script_dir = Path(__file__).parent / "scripts"
 
         output_dir = self.settings.get("output_dir")
         if not output_dir:
@@ -147,13 +148,10 @@ class TargetMOL():
         self._set_done(self.base_dir / "MOL.acpype")
         return None
     
-    def _minimize_MOL(self, wait: bool = True) -> None: 
+    def _minimize_MOL(self) -> None:
         """
         Run minimization for MOL. Copies acpype files into `em` directory, solvates, adds ions, and minimizes
         the structure. The final coordinates are converted from `em.gro` to `MOL_em.pdb`.
-
-        Args:
-            wait (bool, optional): Whether to wait for `em` to finish. Defaults to True.
 
         Returns:
             None
@@ -164,9 +162,9 @@ class TargetMOL():
             subprocess.run(["cp", "../MOL.acpype/MOL_GMX.gro", "."], check=True)
             subprocess.run(["cp", "../MOL.acpype/MOL_GMX.itp", "."], check=True)
             subprocess.run(["cp", "../MOL.acpype/posre_MOL.itp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/topol.top", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/ions.mdp", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/PCC/em/em.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/topol.top", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/ions.mdp", "."], check=True)
+            subprocess.run(["cp", f"{self.script_dir}/PCC/em/em.mdp", "."], check=True)
             # fix topol.top
             subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
 
@@ -174,38 +172,38 @@ class TargetMOL():
             np = self.nodes * self.cores * self.threads
 
             # Create box
-            subprocess.run([
+            run_gmx([
                 "gmx", "editconf", "-f", "MOL_GMX.gro", "-o", "MOL_box.gro", "-c", "-d", "1.0", "-bt", "cubic"
-            ], check=True)
+            ])
 
             # Solvate
-            subprocess.run([
+            run_gmx([
                 "gmx", "solvate", "-cp", "MOL_box.gro", "-cs", "spc216.gro", "-o", "MOL_sol.gro", "-p", "topol.top"
-            ], check=True)
+            ])
 
             # Neutralize if needed and prepare tpr
             if self.charge != 0:
-                subprocess.run([
+                run_gmx([
                     "gmx", "grompp", "-f", "ions.mdp", "-c", "MOL_sol.gro", "-p", "topol.top", "-o", "ions.tpr", "-maxwarn", "2"
-                ], check=True)
-                subprocess.run([
+                ])
+                run_gmx([
                     "gmx", "genion", "-s", "ions.tpr", "-o", "MOL_sol_ions.gro", "-p", "topol.top", "-pname", "NA", "-nname", "CL", "-neutral"
-                ], input="4\n", text=True, check=True)
-                subprocess.run([
+                ], input="4\n", text=True)
+                run_gmx([
                     "gmx", "grompp", "-f", "em.mdp", "-c", "MOL_sol_ions.gro", "-p", "topol.top", "-o", "em.tpr"
-                ], check=True)
+                ])
             else:
-                subprocess.run([
+                run_gmx([
                     "gmx", "grompp", "-f", "em.mdp", "-c", "MOL_sol.gro", "-p", "topol.top", "-o", "em.tpr"
-                ], check=True)
+                ])
 
             # Run minimization
-            subprocess.run(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"], check=True)
+            run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
 
             # Convert minimized structure to PDB
-            subprocess.run([
+            run_gmx([
                 "gmx", "trjconv", "-s", "em.tpr", "-f", "em.gro", "-o", "MOL_em.pdb", "-pbc", "whole", "-conect"
-            ], input="2\n", text=True, check=True)
+            ], input="2\n", text=True)
         self._set_done(self.base_dir/"em")
 
         return None

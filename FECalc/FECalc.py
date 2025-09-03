@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .GMXitp.GMXitp import GMXitp
-from .utils import cd
+from .utils import cd, _place_in_box, run_gmx
 
 class FECalc():
     """Compute PCC–target binding free energies via PBMetaD simulations.
@@ -50,7 +50,8 @@ class FECalc():
         now = datetime.now()
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: Free energy calculations for {self.pcc.PCC_code} with {self.target.name} (PID: {os.getpid()})")
-        self.mold_dir = Path(__file__).parent/Path("mold")
+        # directory with template and helper files
+        self.script_dir = Path(__file__).parent / "scripts"
         self.base_dir = Path(base_dir) # base directory to store files
         if self.base_dir.exists():
             if not self.base_dir.is_dir():
@@ -226,9 +227,9 @@ class FECalc():
     def _mix(self) -> None:
         """Create the initial PCC–target complex.
 
-        The method copies the PCC and target files, uses ``packmol`` to pack
-        them into a simulation box, and generates ``topol.top`` and
-        ``complex.itp`` files for subsequent steps.
+        The method copies the PCC and target files, places them into a
+        simulation box while avoiding steric clashes, and generates
+        ``topol.top`` and ``complex.itp`` files for subsequent steps.
 
         Returns:
             None
@@ -243,13 +244,14 @@ class FECalc():
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/PCC_GMX.itp", "./PCC.itp"], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/em/PCC_em.pdb", "./PCC.pdb"], check=True)
-                # create complex.pdb with packmol
-                subprocess.run(["cp", f"{self.mold_dir}/complex/mix/mix.inp", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/mix/run_packmol.sh", "."], check=True)
-                subprocess.run("bash -c 'source run_packmol.sh'", shell=True, check=True)
-                # check for complex.pdb
+                # create complex.pdb by placing molecules in the box
+                box = getattr(self, "box_size", 30.0)
+                try:
+                    _place_in_box("./PCC.pdb", "./MOL.pdb", "./complex.pdb", box)
+                except FileNotFoundError as e:
+                    raise RuntimeError("Failed to place molecules. Check input PDBs.") from e
                 if not (self.complex_dir/"complex.pdb").exists():
-                    raise RuntimeError(f"Packmol output not found. Check {self.complex_dir}.")
+                    raise RuntimeError(f"Placement output not found. Check {self.complex_dir}.")
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
                 top.create_topol()
@@ -269,7 +271,7 @@ class FECalc():
             None
         """
         # Create box
-        subprocess.run(
+        run_gmx(
             [
                 "gmx",
                 "editconf",
@@ -282,11 +284,10 @@ class FECalc():
                 "cubic",
                 "-box",
                 str(self.box_size),
-            ],
-            check=True,
+            ]
         )
         # Solvate
-        subprocess.run(
+        run_gmx(
             [
                 "gmx",
                 "solvate",
@@ -298,12 +299,11 @@ class FECalc():
                 "complex_sol.gro",
                 "-p",
                 "topol.top",
-            ],
-            check=True,
+            ]
         )
         # Neutralize and prepare EM input
         if self.PCC_charge != 0:
-            subprocess.run(
+            run_gmx(
                 [
                     "gmx",
                     "grompp",
@@ -317,10 +317,9 @@ class FECalc():
                     "ions.tpr",
                     "-maxwarn",
                     "2",
-                ],
-                check=True,
+                ]
             )
-            subprocess.run(
+            run_gmx(
                 [
                     "gmx",
                     "genion",
@@ -338,12 +337,11 @@ class FECalc():
                 ],
                 input="5\n",
                 text=True,
-                check=True,
             )
             grompp_input = "complex_sol_ions.gro"
         else:
             grompp_input = "complex_sol.gro"
-        subprocess.run(
+        run_gmx(
             [
                 "gmx",
                 "grompp",
@@ -357,27 +355,20 @@ class FECalc():
                 "em.tpr",
                 "-maxwarn",
                 "1",
-            ],
-            check=True,
+            ]
         )
         # Determine number of threads
         np = self.nodes * self.cores * self.threads
         # Run energy minimization
-        subprocess.run(
-            ["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"], check=True
-        )
+        run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
         return None
     
-    def _eq_complex(self, wait: bool = True) -> None:
+    def _eq_complex(self) -> None:
         """Solvate and equilibrate the PCC–target complex.
 
         Energy minimization, NVT, and NPT simulations are run sequentially.
         After minimization, atom indices are updated and position restraint
         files are regenerated.
-
-        Args:
-            wait (bool, optional): Whether to wait for each simulation stage to
-                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -395,8 +386,8 @@ class FECalc():
                 subprocess.run(["cp", "../complex.itp", "."], check=True)
                 subprocess.run(["cp", "../complex.pdb", "."], check=True)
                 subprocess.run(["cp", "../topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/em/ions.mdp", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/em/em.mdp", "."], check=True)
+                subprocess.run(["cp", f"{self.script_dir}/complex/em/ions.mdp", "."], check=True)
+                subprocess.run(["cp", f"{self.script_dir}/complex/em/em.mdp", "."], check=True)
                 self._run_complex_em()
             self._set_done(self.complex_dir/'em')
 
@@ -421,24 +412,20 @@ class FECalc():
                 subprocess.run(["cp", "../em/topol.top", "."], check=True)
                 # copy nvt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt.mdp", "./nvt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/nvt/nvt.mdp", "./nvt_temp.mdp"], check=True)
                 else:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/nvt/nvt_nions.mdp", "./nvt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/nvt/nvt_nions.mdp", "./nvt_temp.mdp"], check=True)
                 # set temperature
                 self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # run NVT step previously handled by sub_mdrun_complex_nvt.sh
                 np = self.nodes * self.cores * self.threads
                 # assume required modules and GROMACS environment are preconfigured
-                subprocess.run(
-                    "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr",
-                    shell=True,
-                    check=True,
+                run_gmx(
+                    "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr"
                 )
-                subprocess.run(
-                    f"gmx mdrun -ntomp {np} -deffnm nvt",
-                    shell=True,
-                    check=True,
+                run_gmx(
+                    f"gmx mdrun -ntomp {np} -deffnm nvt"
                 )
             self._set_done(self.complex_dir/'nvt')
         ## NPT
@@ -455,15 +442,15 @@ class FECalc():
                 subprocess.run(["cp", "../nvt/topol.top", "."], check=True)
                 # copy npt.mdp into nvt
                 if self.PCC_charge != 0:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt.mdp", "./npt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/npt/npt.mdp", "./npt_temp.mdp"], check=True)
                 else:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt_nions.mdp", "./npt_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/npt/npt_nions.mdp", "./npt_temp.mdp"], check=True)
                 # set temperature
                 self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # run gromacs npt directly
                 np = self.nodes * self.cores * self.threads
-                subprocess.run([
+                run_gmx([
                     "gmx",
                     "grompp",
                     "-f",
@@ -478,15 +465,15 @@ class FECalc():
                     "topol.top",
                     "-o",
                     "npt.tpr",
-                ], check=True)
-                subprocess.run([
+                ])
+                run_gmx([
                     "gmx",
                     "mdrun",
                     "-ntomp",
                     str(np),
                     "-deffnm",
                     "npt",
-                ], check=True)
+                ])
             self._set_done(self.complex_dir/'npt')
         return
 
@@ -576,7 +563,7 @@ class FECalc():
 
         return None
 
-    def _pbmetaD(self, wait: bool = True) -> None:
+    def _pbmetaD(self) -> None:
         """Run parallel-bias metadynamics (PBMetaD) from the equilibrated structure.
 
         The method prepares PLUMED inputs with the correct atom IDs and
@@ -584,10 +571,6 @@ class FECalc():
         workflow automatically resumes from a checkpoint if one is detected,
         replicating the behaviour previously implemented in the
         ``sub_mdrun_plumed.sh`` helper script.
-
-        Args:
-            wait (bool, optional): Whether to wait for the PBMetaD run to
-                complete. Defaults to ``True``.
 
         Returns:
             None
@@ -624,8 +607,8 @@ class FECalc():
                 subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", "../complex.itp", "."], check=True)
                 subprocess.run(["cp", "../npt/topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed.dat", "./plumed_temp.dat"], check=True) # copy pbmetad script
-                subprocess.run(["cp", f"{self.mold_dir}/complex/md/plumed_restart.dat", "./plumed_r_temp.dat"], check=True) # copy pbmetad script
+                subprocess.run(["cp", f"{self.script_dir}/complex/md/plumed.dat", "./plumed_temp.dat"], check=True) # copy pbmetad script
+                subprocess.run(["cp", f"{self.script_dir}/complex/md/plumed_restart.dat", "./plumed_r_temp.dat"], check=True) # copy pbmetad script
                 # update PCC and MOL atom ids
                 self._create_plumed("./plumed_temp.dat", "./plumed.dat")
                 self._create_plumed("./plumed_r_temp.dat", "./plumed_restart.dat")
@@ -634,14 +617,14 @@ class FECalc():
                 subprocess.run(f"rm ./plumed_r_temp.dat", shell=True)
                 # copy nvt.mdp into pbmetad
                 if self.PCC_charge != 0:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/md/md.mdp", "./md_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/md/md.mdp", "./md_temp.mdp"], check=True)
                 else:
-                    subprocess.run(["cp", f"{self.mold_dir}/complex/md/md_nions.mdp", "./md_temp.mdp"], check=True)
+                    subprocess.run(["cp", f"{self.script_dir}/complex/md/md_nions.mdp", "./md_temp.mdp"], check=True)
                 # set temperature and, if requested, the number of steps
                 self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
                 # generate the binary input for the run
-                subprocess.run(
+                run_gmx(
                     [
                         "gmx",
                         "grompp",
@@ -657,8 +640,7 @@ class FECalc():
                         "topol.top",
                         "-o",
                         "md.tpr",
-                    ],
-                    check=True,
+                    ]
                 )
 
             # submit pbmetad job with limited retries
@@ -703,11 +685,11 @@ class FECalc():
                             "-plumed",
                             "plumed.dat",
                         ]
-                    subprocess.run(cmd, check=True)
+                    run_gmx(cmd)
                     if attempt > 0:
                         print()
                     break
-                except CalledProcessError as e:
+                except RuntimeError as e:
                     attempt += 1
                     if attempt >= max_attempts:
                         raise RuntimeError(
@@ -721,7 +703,7 @@ class FECalc():
         self._set_done(self.complex_dir/'md')
         return None
     
-    def _reweight(self, wait: bool = True) -> None:
+    def _reweight(self) -> None:
         """Reweight the results of the PBMetaD run.
 
         This is achieved by using a ``plumed`` reweighting script that
@@ -729,10 +711,6 @@ class FECalc():
         PBMetaD simulation and creates a new COLVARS file with the converged
         values of bias which is used by ``postprocess`` to calculate the free
         energy.
-
-        Args:
-            wait (bool, optional): Whether to wait for the reweighting job to
-                finish. Defaults to ``True``.
 
         Returns:
             None
@@ -746,7 +724,7 @@ class FECalc():
             subprocess.run(["cp", "../md/GRID_COM", "."], check=True)
             subprocess.run(["cp", "../md/GRID_ang", "."], check=True)
             subprocess.run(["cp", "../md/GRID_cos", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/complex/reweight/reweight.dat", "./reweight_temp.dat"], check=True) # copy reweight script
+            subprocess.run(["cp", f"{self.script_dir}/complex/reweight/reweight.dat", "./reweight_temp.dat"], check=True) # copy reweight script
             # update PCC and MOL atom ids
             self._create_plumed("./reweight_temp.dat", "./reweight.dat")
             # remove temp plumed file
@@ -759,10 +737,7 @@ class FECalc():
                 "-plumed", "reweight.dat", "-s", "../md/md.tpr",
                 "-rerun", "../md/md.xtc",
             ]
-            if wait:
-                subprocess.run(cmd, check=True)
-            else:
-                subprocess.Popen(cmd)
+            run_gmx(cmd)
         self._set_done(self.complex_dir/'reweight')
         return None
 
