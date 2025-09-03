@@ -206,7 +206,7 @@ def _calc_FE(ifdir, KbT, init_time, n_folds) -> None:
     box_size = _get_box_size(ifdir/"md"/"md.gro")
     unbound_max = box_size / 2
     f_list = []
-    f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
+    f_cols = [col for col in block_anal_data.columns if re.match(r"f_\d+", col)]
     discarded_blocks = 0
     for i in f_cols:
         try:

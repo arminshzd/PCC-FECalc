@@ -130,10 +130,10 @@ class FECalc():
         # get atom ids
         for line in atom_list:
             line_list = line.split()
-            if re.match("^\d+MOL$", line_list[0]):
+            if re.match(r"^\d+MOL$", line_list[0]):
                 MOL_list_id.append(int(line_list[2]))
                 MOL_list_atom.append(line_list[1])
-            elif re.match("^\d+PCC$", line_list[0]):
+            elif re.match(r"^\d+PCC$", line_list[0]):
                 PCC_list_id.append(int(line_list[2]))
                 PCC_list_atom.append(line_list[1])
         # save MOL_list and PCC_list
