@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import json
 import numpy as np
+import pytest
 
 # ensure package root on path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -54,3 +55,29 @@ def test_write_report_creates_json(tmp_path):
     assert data["Target"] == "TARGET"
     assert data["FE"] == 1.0
     assert data["K_err"] == 0.2
+
+
+def test_load_plumed_ignores_comments(tmp_path):
+    colvar_content = (
+        "#! FIELDS time pb.bias dcom ang v3cos\n"
+        "0 0.0 1 2 3\n"
+        "# comment line\n"
+        "1 1.0 4 5 6\n"
+    )
+    colvar_file = tmp_path / "COLVAR"
+    colvar_file.write_text(colvar_content)
+    data = _load_plumed(colvar_file, KbT=1000)
+    assert len(data) == 2
+
+
+def test_get_box_size_raises_on_bad_last_line(tmp_path):
+    gro_content = (
+        "test\n"
+        "1\n"
+        "1SOL H1 1 0 0 0\n"
+        "not-a-number\n"
+    )
+    gro_file = tmp_path / "box.gro"
+    gro_file.write_text(gro_content)
+    with pytest.raises(ValueError):
+        _get_box_size(gro_file)
