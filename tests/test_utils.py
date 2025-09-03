@@ -6,7 +6,7 @@ import pytest
 # ensure package root on path for import
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from FECalc.utils import _read_pdb, _write_coords_to_pdb, _prep_pdb, cd
+from FECalc.utils import _read_pdb, _write_coords_to_pdb, _prep_pdb, cd, _place_in_box
 
 
 def test_read_pdb_parses_atoms(tmp_path):
@@ -217,3 +217,48 @@ def test_cd_nested_contexts(tmp_path):
             assert Path.cwd() == dir2
         assert Path.cwd() == dir1
     assert Path.cwd() == start
+
+
+def test_place_in_box_separates_and_aligns(tmp_path):
+    pcc_content = (
+        "ATOM      1  C   PCC     1       0.000   0.000   0.000\n"
+        "ATOM      2  C   PCC     1       1.000   0.000   0.000\n"
+        "ATOM      3  C   PCC     1       0.000   1.000   0.000\n"
+        "TER\n"
+    )
+    mol_content = (
+        "ATOM      1  C   MOL     1       0.000   0.000   0.000\n"
+        "ATOM      2  C   MOL     1       0.000   1.000   0.000\n"
+        "ATOM      3  C   MOL     1       0.000   0.000   1.000\n"
+        "TER\n"
+    )
+    pcc_file = tmp_path / "PCC.pdb"
+    mol_file = tmp_path / "MOL.pdb"
+    out_file = tmp_path / "complex.pdb"
+    pcc_file.write_text(pcc_content)
+    mol_file.write_text(mol_content)
+
+    _place_in_box(pcc_file, mol_file, out_file, box_size=20.0)
+
+    res, atoms, coords = _read_pdb(out_file)
+    pcc_coords = coords[res == "PCC"]
+    mol_coords = coords[res == "MOL"]
+
+    def normal(c):
+        c0 = c - c.mean(axis=0)
+        _, _, vh = np.linalg.svd(c0)
+        return vh[2] / np.linalg.norm(vh[2])
+
+    n1 = normal(pcc_coords)
+    n2 = normal(mol_coords)
+    assert abs(np.dot(n1, n2)) > 0.999
+
+    diff = pcc_coords[:, None, :] - mol_coords[None, :, :]
+    min_d = np.min(np.linalg.norm(diff, axis=2))
+    assert min_d > 3.0 - 1e-6
+
+    center_sep = np.linalg.norm(pcc_coords.mean(axis=0) - mol_coords.mean(axis=0))
+    assert center_sep >= 10.0
+
+    assert coords.min() >= 0.0
+    assert coords.max() <= 20.0
