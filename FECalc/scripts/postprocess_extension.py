@@ -28,6 +28,12 @@ def _load_plumed(fname):
     data['weights'] = np.exp(data['pb.bias']*1000/KBT)
     return data
 
+def _get_box_size(gro_fname):
+    with open(gro_fname, "r") as f:
+        for line in f:
+            pass
+    return float(line.split()[0])
+
 def _block_anal_3d(x, y, z, weights, block_size=None, folds=None, nbins=100):
     # calculate histogram for all data to get bins
     _, binsout = np.histogramdd([x, y, z], bins=nbins, weights=weights)
@@ -143,9 +149,11 @@ def _calc_FE(ifdir) -> None:
     colvars = pd.concat([colvars1, colvars2], axis=0)
     # block analysis
     colvars.dropna(inplace=True)
-    block_anal_data = _block_anal_3d(colvars.dcom, colvars.ang, 
-                                        colvars.v3cos, colvars.weights, 
+    block_anal_data = _block_anal_3d(colvars.dcom, colvars.ang,
+                                        colvars.v3cos, colvars.weights,
                                         nbins=50, block_size=5000*100)
+    box_size = _get_box_size(ifdir/"md"/"md.gro")
+    unbound_max = box_size/2
     f_list = []
     f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
     discarded_blocks = 0
@@ -155,8 +163,8 @@ def _calc_FE(ifdir) -> None:
             bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', 'z', i, 'ste']]
             bound_data.rename(columns={i: 'F'}, inplace=True)
             bound_data.dropna(inplace=True)
-            # unbound = 2.0<dcom<2.4~inf nm 
-            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', 'z', i, 'ste']]
+            # unbound = 2.0<dcom<box_size/2
+            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<unbound_max)][['x', 'y', 'z', i, 'ste']]
             unbound_data.rename(columns={i: 'F'}, inplace=True)
             unbound_data.dropna(inplace=True)
             f_list.append(_calc_deltaF(bound_data=bound_data, unbound_data=unbound_data))

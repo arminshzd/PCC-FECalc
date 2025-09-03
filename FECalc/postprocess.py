@@ -150,9 +150,11 @@ def _calc_FE(ifdir, KbT, init_time, n_folds) -> None:
     colvars = colvars[colvars['time'] >= init_time * 1000]  # discard the first `init_time` ns of data
     # block analysis
     colvars.dropna(inplace=True)
-    block_anal_data = _block_anal_3d(colvars.dcom, colvars.ang, 
-                                        colvars.v3cos, colvars.weights, KbT, 
+    block_anal_data = _block_anal_3d(colvars.dcom, colvars.ang,
+                                        colvars.v3cos, colvars.weights, KbT,
                                         50, n_folds)
+    box_size = _get_box_size(ifdir/"md"/"md.gro")
+    unbound_max = box_size/2
     f_list = []
     f_cols = [col for col in block_anal_data.columns if re.match("f_\d+", col)]
     discarded_blocks = 0
@@ -162,8 +164,8 @@ def _calc_FE(ifdir, KbT, init_time, n_folds) -> None:
             bound_data = block_anal_data[(block_anal_data.x>=0.0) & (block_anal_data.x<=1.5)][['x', 'y', 'z', i, 'ste']]
             bound_data.rename(columns={i: 'F'}, inplace=True)
             bound_data.dropna(inplace=True)
-            # unbound = 2.0<dcom<2.4~inf nm 
-            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<2.5)][['x', 'y', 'z', i, 'ste']]
+            # unbound = 2.0<dcom<box_size/2
+            unbound_data = block_anal_data[(block_anal_data.x>2.0) & (block_anal_data.x<unbound_max)][['x', 'y', 'z', i, 'ste']]
             unbound_data.rename(columns={i: 'F'}, inplace=True)
             unbound_data.dropna(inplace=True)
             f_list.append(_calc_deltaF(bound_data=bound_data, unbound_data=unbound_data, KbT=KbT))
