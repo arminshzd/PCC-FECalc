@@ -315,7 +315,6 @@ class FECalc():
                 subprocess.run(["cp", "../posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", "../complex.itp", "."], check=True)
                 subprocess.run(["cp", "../nvt/topol.top", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/npt/sub_mdrun_complex_npt.sh", "."], check=True) # copy mdrun submission script
                 # copy npt.mdp into nvt
                 if self.PCC_charge != 0:
                     subprocess.run(["cp", f"{self.mold_dir}/complex/npt/npt.mdp", "./npt_temp.mdp"], check=True)
@@ -324,9 +323,35 @@ class FECalc():
                 # set temperature
                 self.update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
-                # submit npt job
-                wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_npt.sh", shell=True)
+                # run gromacs npt directly
+                n_cpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
+                n_thr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+                n_nod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
+                np = n_cpu * n_thr * n_nod
+                subprocess.run([
+                    "gmx",
+                    "grompp",
+                    "-f",
+                    "npt.mdp",
+                    "-c",
+                    "../nvt/nvt.gro",
+                    "-r",
+                    "../nvt/nvt.gro",
+                    "-t",
+                    "../nvt/nvt.cpt",
+                    "-p",
+                    "topol.top",
+                    "-o",
+                    "npt.tpr",
+                ], check=True)
+                subprocess.run([
+                    "gmx",
+                    "mdrun",
+                    "-ntomp",
+                    str(np),
+                    "-deffnm",
+                    "npt",
+                ], check=True)
             self._set_done(self.complex_dir/'npt')
         return
 
