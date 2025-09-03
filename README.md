@@ -4,6 +4,8 @@
 
 This repository provides a python framework for performing binding free energy calculations for a user-defined target molecule and a protein-catalyzed capture (PCC) agent with a user-defined epitope sequence. The core of this package is based on ["High-throughput virtual screening of protein-catalyzed capture agents for novel hydrogel-nanoparticle fentanyl sensors"](10.26434/chemrxiv-2025-psxft) and the corresponding [repository](https://github.com/Ferg-Lab/FEN-HTVS). Please refer to the original paper for a more technical explanation of the theory and the setup behind the free energy calculations done with this framework.
 
+For more detailed instructions and API descriptions, see the [full documentation](https://arminshzd.github.io/PCC-FECalc/) or consult the source in the [`docs/`](docs/) directory.
+
 ---
 
 ## 🚀 Features
