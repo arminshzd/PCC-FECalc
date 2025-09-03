@@ -15,8 +15,7 @@ dependencies = [
     "scipy",
     "pandas",
     "ase",
-    "acpype",
-    "pymol-open-source",
+    "acpype"
 ]
 
 [project.optional-dependencies]
