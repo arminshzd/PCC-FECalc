@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="None">
+        
+        
+        <link rel="shortcut icon" href="img/favicon.ico">
+        <title>PCC-FECalc</title>
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+        <link href="css/fontawesome.min.css" rel="stylesheet">
+        <link href="css/brands.min.css" rel="stylesheet">
+        <link href="css/solid.min.css" rel="stylesheet">
+        <link href="css/v4-font-face.min.css" rel="stylesheet">
+        <link href="css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <link href="assets/_mkdocstrings.css" rel="stylesheet">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body class="homepage">
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href=".">PCC-FECalc</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="." class="nav-link active" aria-current="page">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="api/" class="nav-link">API Reference</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="examples/" class="nav-link">Examples</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" class="nav-link disabled">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="api/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#pcc-fecalc-binding-free-energy-calculations-for-protein-catalyzed-capture-agents" class="nav-link">PCC-FECalc: Binding Free Energy Calculations for Protein-Catalyzed Capture Agents</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#overview" class="nav-link">📖 Overview</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#features" class="nav-link">🚀 Features</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#installation" class="nav-link">📦 Installation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#usage" class="nav-link">🛠 Usage</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#license" class="nav-link">📜 License</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="pcc-fecalc-binding-free-energy-calculations-for-protein-catalyzed-capture-agents">PCC-FECalc: Binding Free Energy Calculations for Protein-Catalyzed Capture Agents</h1>
+<h2 id="overview">📖 Overview</h2>
+<p>This repository provides a python framework for performing binding free energy calculations for a user-defined target molecule and a protein-catalyzed capture (PCC) agent with a user-defined epitope sequence. The core of this package is based on <a href="10.26434/chemrxiv-2025-psxft">"High-throughput virtual screening of protein-catalyzed capture agents for novel hydrogel-nanoparticle fentanyl sensors"</a> and the corresponding <a href="https://github.com/Ferg-Lab/FEN-HTVS">repository</a>. Please refer to the original paper for a more technical explanation of the theory and the setup behind the free energy calculations done with this framework.</p>
+<hr />
+<h2 id="features">🚀 Features</h2>
+<p>The framework is organized into four main submodules that work in serial to perform a complete binding free energy calculation using GROMACS:</p>
+<ul>
+<li><code>PCCBuilder</code>: This object creates a PCC with a given sequence, calculates GAFF2 parameters for it, and minimizes it.</li>
+<li><code>TargetMOL</code>: Similar to <code>PCCBuilder</code>, creates input structures and force field parameters for a provided target molecule.</li>
+<li><code>FECalc</code>: Brings together the PCC and the target molecule, solvates them in a water box, and performs minimization, NVT, and NPT equilibration, runs a parallel-bias metadynamics simulation, and reweights the resulting trajectory for free energy calculations.</li>
+<li><code>postprocess</code>: Uses the reweighted statistics to calculate the 3D binding free energy volume of the PCC-molecule complex and calculates the binding free energy and dissociation constant.</li>
+</ul>
+<hr />
+<h2 id="installation">📦 Installation</h2>
+<h3 id="clone-the-repository">Clone the repository</h3>
+<pre><code class="language-bash">    git clone https://github.com/arminshzd/PCC-FECalc.git
+    cd PCC-FECalc
+</code></pre>
+<h3 id="install">Install</h3>
+<pre><code class="language-bash">pip install -e .
+</code></pre>
+<hr />
+<h2 id="usage">🛠 Usage</h2>
+<p>See <code>example/pcc_submit_test.py</code> for a sample calculation setup.</p>
+<p>This framework additionally relies on PyMOL and <code>acpype</code> for PCC mutations and GAFF2 parameter generation. Both are installed automatically as the <code>pymol-open-source</code> and <code>acpype</code> Python packages. Ensure the <code>pymol</code> executable is available on your <code>PATH</code>.</p>
+<p>The calculations happen through four steps and each step requires a <code>JSON</code> files with the necessary user parameters:</p>
+<h3 id="step-1-building-the-pcc">Step 1: Building the PCC</h3>
+<p>The settings file for this step is pre-made in <code>FECalc/PCCBuilder_settings.JSON</code> and generally requires no modification.</p>
+<h3 id="step-2-building-the-target">Step 2: Building the target</h3>
+<p>The settings file for this step should be created by the user. Two example are provided in <code>example/ACT_settings.JSON</code> for acetaminophen and <code>example/FEN_settings.JSON</code> for fentanyl. The mandatory entries are:</p>
+<ul>
+<li><code>name</code>: Name of the target. Used for creating subdirectories and making reports.</li>
+<li><code>charge</code>: Total charge of the target.</li>
+<li><code>anchor1</code>: Anchor point defined using the atoms on the target molecule. This is used together with <code>anchor2</code> to define a vector that is used in determining the relative position and orientation of the target molecule with respect to the PCC during the PBMetaD calculations. See the original publication for a detailed explanation of how this vector is used in the collective variables.</li>
+<li><code>anchor2</code>: See above.</li>
+<li><code>output_dir</code>: Path to the folder to store the parameter calculations and minimization.</li>
+<li><code>input_pdb_dir</code>: Input <code>pdb</code> file of the target molecule structure.</li>
+</ul>
+<h3 id="step-3-enhanced-sampling-calculations">Step 3: Enhanced sampling calculations</h3>
+<p>The settings file for this step should be created by the user. An example is provided in <code>example/system_settings.JSON</code>. The mandatory entries are:</p>
+<ul>
+<li><code>PCC_output_dir</code>: Path to the output folder that holds the PCC calculations.</li>
+<li><code>PCC_settings_json</code>: Path to the <code>JSON</code> file for the PCC.</li>
+<li><code>MOL_settings_json</code>: Path to the <code>JSON</code> file for the target.</li>
+<li><code>temperature</code>: Temperature of the simulations</li>
+<li><code>box_size</code>: Size of the simulation box. Cubic periodic.</li>
+<li><code>complex_output_dir</code>: Path to the out directory for the free energy calculations. The contents of this directory will be as follows:</li>
+</ul>
+<pre><code class="language-bash">{PCC sequence}_{target name}/
+│-- em/               # Minimization
+│-- nvt/              # NVT equilibration
+│-- npt/              # NPT equilibration
+│-- md/               # PBMetaD simulation
+│-- reweight/         # Reweighting
+</code></pre>
+<p>The optional entries are:</p>
+<ul>
+<li><code>scheduler</code>: Scheduler used to allocate hardware resources. Supported
+  options are <code>"local"</code> (default), <code>"slurm"</code>, <code>"pbs"</code>, and <code>"lsf"</code>.</li>
+<li><code>nodes</code>, <code>cores</code>, <code>threads</code>: Hardware layout overrides for the number of
+  nodes, cores per node, and threads per core. Defaults to <code>1</code> for each
+  value; scheduler environment variables take precedence. These counts are
+  used to set the correct <code>-ntomp</code> for GROMACS.</li>
+<li><code>metad_settings</code>: Parameters of the metadynamics simulation</li>
+<li><code>n_steps</code>: Number of steps for the metadynamics run. 2 fs step size. defaults to 800 ns.</li>
+<li><code>metad_height</code>: Height of the deposited Guassians. Defaults to 3.0 kJ/mol.</li>
+<li><code>metad_pace</code>: Pace of deposition. Defaults to 500 steps.</li>
+<li><code>metad_bias_factor</code>: Biasing factor for the PBMetaD bias. Defaults to 20.</li>
+<li><code>postprocess_settings</code>: Parameters for the post-processing and free energy calculations.</li>
+<li><code>discard_initial</code>: Initial duration of the PBMetaD simulation to discard for free energy calculations in ns. Defaults to 100 ns.</li>
+<li><code>n_folds</code>: Number of folds for block-analysis and uncertainty quantification. Defaults to 5.</li>
+</ul>
+<h3 id="step-4-free-energy-calculation">Step 4: Free energy calculation</h3>
+<p>This step does not require a separate settings file as the parameters are set by the settings file in step 3. The post-processing step calculates the 3D integral of the bound basin and the unbound region and reports $\Delta G$ of binding in kJ/mol and $K_d$ in $\mu M$. The report is created in <code>complex_output_dir/{PCC sequence}_{target name}/metadata.JSON</code>.</p>
+<hr />
+<h2 id="license">📜 License</h2>
+<p>This project is licensed under the MIT License.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = ".",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="js/base.js"></script>
+        <script src="search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2025-09-03 20:10:40.510486+00:00
+-->
