@@ -234,7 +234,120 @@ class FECalc():
                 top.create_topol()
 
             self._set_done(self.complex_dir)
-        
+
+        return None
+
+    def _run_complex_em(self) -> None:
+        """Run energy minimization for the PCC–target complex.
+
+        This method replaces the external ``sub_mdrun_complex_em.sh`` script by
+        executing the corresponding GROMACS commands directly via
+        :mod:`subprocess`.
+
+        Returns:
+            None
+        """
+        # Create box
+        subprocess.run(
+            [
+                "gmx",
+                "editconf",
+                "-f",
+                "complex.pdb",
+                "-o",
+                "complex_box.gro",
+                "-c",
+                "-bt",
+                "cubic",
+                "-box",
+                str(self.box_size),
+            ],
+            check=True,
+        )
+        # Solvate
+        subprocess.run(
+            [
+                "gmx",
+                "solvate",
+                "-cp",
+                "complex_box.gro",
+                "-cs",
+                "spc216.gro",
+                "-o",
+                "complex_sol.gro",
+                "-p",
+                "topol.top",
+            ],
+            check=True,
+        )
+        # Neutralize and prepare EM input
+        if self.PCC_charge != 0:
+            subprocess.run(
+                [
+                    "gmx",
+                    "grompp",
+                    "-f",
+                    "ions.mdp",
+                    "-c",
+                    "complex_sol.gro",
+                    "-p",
+                    "topol.top",
+                    "-o",
+                    "ions.tpr",
+                    "-maxwarn",
+                    "2",
+                ],
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "gmx",
+                    "genion",
+                    "-s",
+                    "ions.tpr",
+                    "-o",
+                    "complex_sol_ions.gro",
+                    "-p",
+                    "topol.top",
+                    "-pname",
+                    "NA",
+                    "-nname",
+                    "CL",
+                    "-neutral",
+                ],
+                input="5\n",
+                text=True,
+                check=True,
+            )
+            grompp_input = "complex_sol_ions.gro"
+        else:
+            grompp_input = "complex_sol.gro"
+        subprocess.run(
+            [
+                "gmx",
+                "grompp",
+                "-f",
+                "em.mdp",
+                "-c",
+                grompp_input,
+                "-p",
+                "topol.top",
+                "-o",
+                "em.tpr",
+                "-maxwarn",
+                "1",
+            ],
+            check=True,
+        )
+        # Determine number of threads
+        ncpu = int(os.getenv("SLURM_NTASKS_PER_NODE", "1"))
+        nthr = int(os.getenv("SLURM_CPUS_PER_TASK", "1"))
+        nnod = int(os.getenv("SLURM_JOB_NUM_NODES", "1"))
+        np = ncpu * nthr * nnod
+        # Run energy minimization
+        subprocess.run(
+            ["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"], check=True
+        )
         return None
     
     def _eq_complex(self, wait: bool = True) -> None:
@@ -266,9 +379,7 @@ class FECalc():
                 subprocess.run(["cp", "../topol.top", "."], check=True)
                 subprocess.run(["cp", f"{self.mold_dir}/complex/em/ions.mdp", "."], check=True)
                 subprocess.run(["cp", f"{self.mold_dir}/complex/em/em.mdp", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/em/sub_mdrun_complex_em.sh", "."], check=True) # copy mdrun submission script
-                wait_str = " --wait " if wait else "" # whether to wait for em to finish before exiting
-                subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_complex_em.sh {self.box_size} {self.pcc.charge}", check=True, shell=True)
+                self._run_complex_em()
             self._set_done(self.complex_dir/'em')
 
         if not self.MOL_list:
