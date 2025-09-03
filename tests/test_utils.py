@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import numpy as np
+import pytest
 
 # ensure package root on path for import
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -21,6 +22,46 @@ def test_read_pdb_parses_atoms(tmp_path):
     assert list(mols) == ["UNL", "MOL"]
     assert list(atoms) == ["H", "C"]
     assert np.allclose(coords, [[-0.038, 1.930, 0.661], [0.0, 0.0, 0.0]])
+
+
+def test_read_pdb_ignores_non_atom_records(tmp_path):
+    pdb_content = (
+        "REMARK comment line\n"
+        "ATOM      1  C   MOL     1       0.000   0.000   0.000\n"
+        "TER\n"
+    )
+    pdb_file = tmp_path / "test.pdb"
+    pdb_file.write_text(pdb_content)
+
+    mols, atoms, coords = _read_pdb(pdb_file)
+
+    assert list(mols) == ["MOL"]
+    assert list(atoms) == ["C"]
+    assert np.allclose(coords, [[0.0, 0.0, 0.0]])
+
+
+def test_read_pdb_empty_file(tmp_path):
+    pdb_file = tmp_path / "empty.pdb"
+    pdb_file.write_text("")
+
+    mols, atoms, coords = _read_pdb(pdb_file)
+
+    assert len(mols) == len(atoms) == len(coords) == 0
+
+
+def test_read_pdb_invalid_path():
+    with pytest.raises(FileNotFoundError):
+        _read_pdb("nonexistent.pdb")
+
+
+def test_read_pdb_malformed_line(tmp_path):
+    # missing z coordinate field
+    pdb_content = "ATOM      1  C   MOL     1       0.000   0.000\n"
+    pdb_file = tmp_path / "bad.pdb"
+    pdb_file.write_text(pdb_content)
+
+    with pytest.raises((IndexError, ValueError)):
+        _read_pdb(pdb_file)
 
 
 def test_write_coords_to_pdb_updates_coordinates(tmp_path):
@@ -46,6 +87,52 @@ def test_write_coords_to_pdb_updates_coordinates(tmp_path):
     assert lines[2] == "TER"
 
 
+def test_write_coords_to_pdb_mismatched_length(tmp_path):
+    pdb_content = (
+        "ATOM      1  C   UNL     1       0.000   0.000   0.000\n"
+        "ATOM      2  H   UNL     1       0.100   0.100   0.100\n"
+    )
+    infile = tmp_path / "in.pdb"
+    outfile = tmp_path / "out.pdb"
+    infile.write_text(pdb_content)
+
+    coords = np.array([[1.0, 2.0, 3.0]])
+
+    with pytest.raises(IndexError):
+        _write_coords_to_pdb(infile, outfile, coords)
+
+
+def test_write_coords_to_pdb_invalid_shape(tmp_path):
+    pdb_content = "ATOM      1  C   UNL     1       0.000   0.000   0.000\n"
+    infile = tmp_path / "in.pdb"
+    outfile = tmp_path / "out.pdb"
+    infile.write_text(pdb_content)
+
+    coords = np.array([1.0, 2.0, 3.0])
+
+    with pytest.raises(IndexError):
+        _write_coords_to_pdb(infile, outfile, coords)
+
+
+def test_write_coords_to_pdb_formats_negative_and_precision(tmp_path):
+    pdb_content = "ATOM      1  C   UNL     1       0.000   0.000   0.000\n"
+    infile = tmp_path / "in.pdb"
+    outfile = tmp_path / "out.pdb"
+    infile.write_text(pdb_content)
+
+    original = infile.read_text().splitlines()[0]
+    coords = np.array([[-1.23456, 123.4567, -0.0004]])
+
+    _write_coords_to_pdb(infile, outfile, coords)
+
+    line = outfile.read_text().splitlines()[0]
+    assert line[:30] == original[:30]
+    assert line[54:] == original[54:]
+    assert line[30:38].strip() == "-1.235"
+    assert line[38:46].strip() == "123.457"
+    assert line[46:54].strip() == "-0.000"
+
+
 def test_prep_pdb_rewrites_residue(tmp_path):
     pdb_content = (
         "HETATM    1  H   UNL     2      -0.038   1.930   0.661\n"
@@ -63,6 +150,35 @@ def test_prep_pdb_rewrites_residue(tmp_path):
             assert line[25] == "1"
 
 
+def test_prep_pdb_preserves_other_records(tmp_path):
+    pdb_content = (
+        "ATOM      1  C   UNL     2       0.000   0.000   0.000\n"
+        "TER\n"
+        "REMARK something\n"
+    )
+    infile = tmp_path / "in.pdb"
+    outfile = tmp_path / "out.pdb"
+    infile.write_text(pdb_content)
+
+    _prep_pdb(infile, outfile, "NEW")
+
+    lines = outfile.read_text().splitlines()
+    assert "TER" in lines
+    assert "REMARK something" in lines
+
+
+def test_prep_pdb_strips_resname_whitespace(tmp_path):
+    pdb_content = "ATOM      1  C   UNL     2       0.000   0.000   0.000\n"
+    infile = tmp_path / "in.pdb"
+    outfile = tmp_path / "out.pdb"
+    infile.write_text(pdb_content)
+
+    _prep_pdb(infile, outfile, " N E W ")
+
+    line = outfile.read_text().splitlines()[0]
+    assert line[17:20] == "NEW"
+
+
 def test_cd_changes_and_restores_directory(tmp_path):
     start = Path.cwd()
     with cd(tmp_path):
@@ -77,3 +193,27 @@ def test_cd_changes_and_restores_directory(tmp_path):
         assert Path.cwd() == start
     else:
         assert False, "cd should raise ValueError for invalid path"
+
+
+def test_cd_file_path_raises_value_error(tmp_path):
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("content")
+    start = Path.cwd()
+    with pytest.raises(ValueError):
+        with cd(file_path):
+            pass
+    assert Path.cwd() == start
+
+
+def test_cd_nested_contexts(tmp_path):
+    start = Path.cwd()
+    dir1 = tmp_path / "dir1"
+    dir2 = dir1 / "dir2"
+    dir2.mkdir(parents=True)
+
+    with cd(dir1):
+        assert Path.cwd() == dir1
+        with cd(dir2):
+            assert Path.cwd() == dir2
+        assert Path.cwd() == dir1
+    assert Path.cwd() == start
