@@ -134,18 +134,16 @@ class PCCBuilder():
 
         The procedure is carried out in several steps:
 
-        1. Copy the ``acpype`` submission script into the PCC directory.
-        2. Call :func:`_prep_pdb` to create an input PDB file containing a
+        1. Call :func:`_prep_pdb` to create an input PDB file containing a
            single residue named ``PCC``.
-        3. Submit ``acpype`` via ``sbatch``; optionally wait for the job to
-           finish.
-        4. Inspect ``PCC.acpype/acpype.log`` for the presence of the word
+        2. Run ``acpype`` directly via :mod:`subprocess`.
+        3. Inspect ``PCC.acpype/acpype.log`` for the presence of the word
            ``warning``. Any warning triggers a ``RuntimeError`` because it
            indicates that the generated topology may contain incorrect bonds.
 
         Args:
-            wait (bool, optional): If ``True`` (default) the function waits for
-                ``acpype`` to finish before returning.
+            wait (bool, optional): Retained for backward compatibility; has no
+                effect as ``acpype`` now runs synchronously.
 
         Raises:
             RuntimeError: If ``acpype.log`` contains warnings suggesting the
@@ -155,22 +153,33 @@ class PCCBuilder():
             None
         """
         
-        subprocess.run(["cp", f"{self.mold_dir}/PCC/sub_acpype.sh", f"{self.PCC_dir}"], check=True) # copy acpype submission script
-
-        wait_str = " --wait " if wait else "" # whether to wait for acpype to finish before exiting        
-        with cd(self.PCC_dir): # cd into the PCC directory
-                        # create acpype pdb with 1 residue
+        with cd(self.PCC_dir):  # cd into the PCC directory
+            # create acpype pdb with 1 residue
             _prep_pdb(f"{self.PCC_code}_opt.pdb", f"{self.PCC_code}_acpype.pdb", "PCC")
             # run acpype
             print("Running acpype: ", flush=True)
-            subprocess.run(f"sbatch -J {self.PCC_code}{wait_str}sub_acpype.sh {self.PCC_code}_acpype PCC {self.charge}", shell=True, check=True)
-        
+            subprocess.run([
+                "acpype",
+                "-i",
+                f"{self.PCC_code}_acpype.pdb",
+                "-b",
+                "PCC",
+                "-c",
+                "bcc",
+                "-n",
+                str(self.charge),
+                "-a",
+                "gaff2",
+            ], check=True)
+
             # check acpype.log for warnings
             with open("PCC.acpype/acpype.log") as f:
                 acpype_log = f.read()
                 if "warning:" in acpype_log.lower():
-                    raise RuntimeError("""Acpype generated files are likely to have incorrect bonds. 
-                                       Check the generated PCC structure before continueing.""")
+                    raise RuntimeError(
+                        """Acpype generated files are likely to have incorrect bonds.
+                                       Check the generated PCC structure before continueing."""
+                    )
 
         self._set_done(self.PCC_dir/"PCC.acpype")
         return None

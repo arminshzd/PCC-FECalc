@@ -38,7 +38,7 @@ pip install -e .
 
 See `example/pcc_submit_test.py` for a sample calculation setup.
 
-Apart from the necessary python packages, this frameworks needs a `pymol` installation for PCC mutations, `packmol` for packing the PCC and target in a box, and `acpype` to calculate GAFF2 parameters. The path to the `pymol` installation can be set through `FECalc/PCCBuilder_settings.JSON` and the setup for running `packmol` and `acpype` are set by `FECalc/mold/complex/mix/run_packmol.sh` and `FECalc/mold/PCC/sub_acpype.sh`.
+Apart from the necessary python packages, this framework needs a `pymol` installation for PCC mutations, `packmol` for packing the PCC and target in a box, and `acpype` to calculate GAFF2 parameters. The path to the `pymol` installation can be set through `FECalc/PCCBuilder_settings.JSON` and `packmol` is configured via `FECalc/mold/complex/mix/run_packmol.sh`. `acpype` is expected to be available on the command line.
 
 The calculations happen through four steps and each step requires a `JSON` files with the necessary user parameters:
 
