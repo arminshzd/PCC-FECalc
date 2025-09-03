@@ -541,15 +541,26 @@ class FECalc():
             subprocess.run(["cp", "../md/GRID_COM", "."], check=True)
             subprocess.run(["cp", "../md/GRID_ang", "."], check=True)
             subprocess.run(["cp", "../md/GRID_cos", "."], check=True)
-            subprocess.run(["cp", f"{self.mold_dir}/complex/reweight/sub_mdrun_rerun.sh", "."], check=True) # copy mdrun submission script
             subprocess.run(["cp", f"{self.mold_dir}/complex/reweight/reweight.dat", "./reweight_temp.dat"], check=True) # copy reweight script
             # update PCC and MOL atom ids
             self._create_plumed("./reweight_temp.dat", "./reweight.dat")
             # remove temp plumed file
             subprocess.run(f"rm ./reweight_temp.dat", shell=True)
-            # submit reweight job
-            wait_str = " --wait " if wait else "" # whether to wait for reweight to finish before exiting
-            subprocess.run(f"sbatch -J {self.pcc.PCC_code}{wait_str}sub_mdrun_rerun.sh", check=True, shell=True)
+            # determine number of threads
+            ncpu = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
+            nthr = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+            nnod = int(os.environ.get("SLURM_JOB_NUM_NODES", 1))
+            np = ncpu * nthr * nnod
+            # run reweight job directly using gmx
+            cmd = [
+                "gmx", "mdrun", "-ntomp", str(np),
+                "-plumed", "reweight.dat", "-s", "../md/md.tpr",
+                "-rerun", "../md/md.xtc",
+            ]
+            if wait:
+                subprocess.run(cmd, check=True)
+            else:
+                subprocess.Popen(cmd)
         self._set_done(self.complex_dir/'reweight')
         return None
 
