@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .GMXitp.GMXitp import GMXitp
-from .utils import cd, run_gmx
+from .utils import cd, _place_in_box, run_gmx
 
 class FECalc():
     """Compute PCC–target binding free energies via PBMetaD simulations.
@@ -206,9 +206,9 @@ class FECalc():
     def _mix(self) -> None:
         """Create the initial PCC–target complex.
 
-        The method copies the PCC and target files, uses ``packmol`` to pack
-        them into a simulation box, and generates ``topol.top`` and
-        ``complex.itp`` files for subsequent steps.
+        The method copies the PCC and target files, places them into a
+        simulation box while avoiding steric clashes, and generates
+        ``topol.top`` and ``complex.itp`` files for subsequent steps.
 
         Returns:
             None
@@ -223,13 +223,14 @@ class FECalc():
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/PCC_GMX.itp", "./PCC.itp"], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/posre_PCC.itp", "."], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/em/PCC_em.pdb", "./PCC.pdb"], check=True)
-                # create complex.pdb with packmol
-                subprocess.run(["cp", f"{self.mold_dir}/complex/mix/mix.inp", "."], check=True)
-                subprocess.run(["cp", f"{self.mold_dir}/complex/mix/run_packmol.sh", "."], check=True)
-                subprocess.run("bash -c 'source run_packmol.sh'", shell=True, check=True)
-                # check for complex.pdb
+                # create complex.pdb by placing molecules in the box
+                box = getattr(self, "box_size", 30.0)
+                try:
+                    _place_in_box("./PCC.pdb", "./MOL.pdb", "./complex.pdb", box)
+                except FileNotFoundError as e:
+                    raise RuntimeError("Failed to place molecules. Check input PDBs.") from e
                 if not (self.complex_dir/"complex.pdb").exists():
-                    raise RuntimeError(f"Packmol output not found. Check {self.complex_dir}.")
+                    raise RuntimeError(f"Placement output not found. Check {self.complex_dir}.")
                 # create topol.top and complex.itp
                 top = GMXitp("./MOL.itp", "./PCC.itp")
                 top.create_topol()

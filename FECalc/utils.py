@@ -68,6 +68,109 @@ def _write_coords_to_pdb(f_in, f_out, coords):
 
     return None
 
+
+def _place_in_box(pcc_pdb, mol_pdb, out_pdb, box_size, min_dist=3.0, initial_sep=10.0):
+    """Place PCC and target molecules into a simulation box without clashes.
+
+    The two molecules are rotated so that their best-fit planes are parallel
+    and separated along the z-axis. The separation between their geometric
+    centers starts at ``initial_sep`` and is increased until the minimum
+    interatomic distance between the two molecules exceeds ``min_dist``.
+
+    Args:
+        pcc_pdb (Path or str): Path to the PCC PDB file.
+        mol_pdb (Path or str): Path to the target molecule PDB file.
+        out_pdb (Path or str): Output PDB file for the combined complex.
+        box_size (float): Edge length of the (cubic) simulation box in Å.
+        min_dist (float, optional): Minimum allowed distance between any PCC
+            and target atom in Å. Defaults to 3.0.
+        initial_sep (float, optional): Initial separation between the
+            geometric centers in Å. Defaults to 10.0 (1 nm).
+
+    Returns:
+        None
+    """
+
+    def _plane_normal(coords):
+        coords_centered = coords - coords.mean(axis=0)
+        _, _, vh = np.linalg.svd(coords_centered)
+        return vh[2]
+
+    def _align_to_xy(coords):
+        n = _plane_normal(coords)
+        n = n / np.linalg.norm(n)
+        z_axis = np.array([0.0, 0.0, 1.0])
+        v = np.cross(n, z_axis)
+        s = np.linalg.norm(v)
+        c = np.dot(n, z_axis)
+        if s < 1e-8:
+            if c > 0:
+                R = np.eye(3)
+            else:
+                R = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
+        else:
+            v /= s
+            vx = np.array(
+                [[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]]
+            )
+            R = np.eye(3) + vx + vx @ vx * ((1 - c) / (s**2))
+        return coords @ R.T
+
+    # read coordinates
+    pcc_res, pcc_atoms, pcc_coords = _read_pdb(pcc_pdb)
+    mol_res, mol_atoms, mol_coords = _read_pdb(mol_pdb)
+
+    # align planes and center
+    pcc_coords = _align_to_xy(pcc_coords)
+    mol_coords = _align_to_xy(mol_coords)
+    pcc_coords -= pcc_coords.mean(axis=0)
+    mol_coords -= mol_coords.mean(axis=0)
+
+    # increase separation until no clashes
+    axis = np.array([0.0, 0.0, 1.0])
+    sep = initial_sep
+    while True:
+        mol_shifted = mol_coords + axis * sep
+        diff = pcc_coords[:, None, :] - mol_shifted[None, :, :]
+        min_d = np.min(np.linalg.norm(diff, axis=2))
+        if min_d >= min_dist:
+            break
+        sep += 1.0
+
+    box_center = np.array([box_size / 2] * 3)
+    pcc_coords_box = pcc_coords + box_center - axis * sep / 2
+    mol_coords_box = mol_shifted + box_center - axis * sep / 2
+
+    # write combined PDB
+    def _update_lines(fname, coords):
+        with open(fname) as f:
+            lines = f.readlines()
+        new_lines = []
+        atom_i = 0
+        for line in lines:
+            fields = line.split()
+            if fields and fields[0] in {"ATOM", "HETATM"}:
+                x = f"{coords[atom_i, 0]:.3f}"
+                x = " " * (8 - len(x)) + x
+                y = f"{coords[atom_i, 1]:.3f}"
+                y = " " * (8 - len(y)) + y
+                z = f"{coords[atom_i, 2]:.3f}"
+                z = " " * (8 - len(z)) + z
+                new_line = line[:30] + x + y + z + line[54:]
+                atom_i += 1
+            else:
+                new_line = line
+            new_lines.append(new_line)
+        return new_lines
+
+    pcc_lines = _update_lines(pcc_pdb, pcc_coords_box)
+    mol_lines = _update_lines(mol_pdb, mol_coords_box)
+
+    with open(out_pdb, "w") as f:
+        f.writelines(pcc_lines + mol_lines)
+
+    return None
+
 def _prep_pdb(in_f_dir: Path, out_f_dir: Path, resname: str) -> None:
     """Create a single-residue PDB suitable for ``acpype``.
 
