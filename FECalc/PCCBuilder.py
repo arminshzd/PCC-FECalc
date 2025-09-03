@@ -8,9 +8,11 @@ from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb
 
 
 class PCCBuilder():
-    """
-    Class to generate the PCC from the master PCC structure. Then `AMBER` parameters
-    are generated for the new PCC using `acpype`. New PCC is then solvated and equilibrated.
+    """Build peptide capture constructs (PCCs) composed of D-amino acids.
+
+    The builder mutates a reference PCC to the desired sequence, generates
+    `AMBER` parameters with `acpype`, and prepares a solvated and equilibrated
+    structure for subsequent free-energy calculations.
     """
 
     def __init__(self, pcc: str, base_dir: Path, settings_json: Path) -> None:
@@ -99,8 +101,11 @@ class PCCBuilder():
         return None
 
     def _create_pcc(self) -> None:
-        """
-        Call `PCCmold.py` through `pymol` to mutate all residues in the refrence PCC to create the new PCC.
+        """Create a PCC built from D-amino acids using a PyMOL script.
+
+        This method calls ``PCCmold.py`` through ``pymol`` to mutate every
+        residue in the reference PCC structure to the desired sequence, which
+        is composed exclusively of D-amino acids.
 
         Returns:
             None
@@ -125,11 +130,26 @@ class PCCBuilder():
         return None
     
     def _get_params(self, wait: bool = True) -> None:
-        """
-        Run acpype on the mutated `PCC.pdb` file. Submits a job to the cluster.
+        """Generate GAFF parameters for the mutated PCC using ``acpype``.
+
+        The procedure is carried out in several steps:
+
+        1. Copy the ``acpype`` submission script into the PCC directory.
+        2. Call :func:`_prep_pdb` to create an input PDB file containing a
+           single residue named ``PCC``.
+        3. Submit ``acpype`` via ``sbatch``; optionally wait for the job to
+           finish.
+        4. Inspect ``PCC.acpype/acpype.log`` for the presence of the word
+           ``warning``. Any warning triggers a ``RuntimeError`` because it
+           indicates that the generated topology may contain incorrect bonds.
 
         Args:
-            wait (bool, optional): Whether to wait for acpype to finish. Defaults to True.
+            wait (bool, optional): If ``True`` (default) the function waits for
+                ``acpype`` to finish before returning.
+
+        Raises:
+            RuntimeError: If ``acpype.log`` contains warnings suggesting the
+                topology generation failed.
 
         Returns:
             None
@@ -183,7 +203,12 @@ class PCCBuilder():
         return None
 
     def create(self) -> tuple:
-        """Wrapper for building PCC structures.
+        """Build, parameterize, and minimize a PCC.
+
+        This wrapper orchestrates the full PCC preparation workflow by
+        sequentially calling :meth:`_create_pcc`, :meth:`_get_params`, and
+        :meth:`_minimize_PCC`. Each stage is skipped if a corresponding
+        ``.done`` file is present.
 
         Returns:
             None

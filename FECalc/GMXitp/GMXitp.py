@@ -3,18 +3,19 @@ import re
 from pathlib import Path
 
 class GMXitp():
+    """Combine MOL and PCC ``.itp`` files into a single topology."""
+
     def __init__(self, MOL_itp, PCC_itp) -> None:
-        # defining directories
+        """Initialize with paths to the component ``.itp`` files."""
         self.MOL_itp_dir = Path(MOL_itp)
         self.PCC_itp_dir = Path(PCC_itp)
         self.base_dir = self.MOL_itp_dir.parent
 
-        #defining all the present atom_types
-        self.atom_types = [] # holds the atom types
-        self.atomtypes_sec = [] # hold the complete parameter line
-    
+        self.atom_types = []  # holds the atom types
+        self.atomtypes_sec = []  # hold the complete parameter line
+
     def _load_itp(self, itp_dir) -> set:
-        """Doesn't really proces the lines. Just the sections"""
+        """Extract the ``[ atomtypes ]`` section from an ``.itp`` file."""
 
         with open(itp_dir) as f:
             itp_cnt = f.readlines()
@@ -39,9 +40,10 @@ class GMXitp():
         return atomtypes_list, itp_truncated
 
     def _update_atomtypes(self, itp_atomtypes) -> None:
-        for atom in itp_atomtypes: # add them to the objects holding the list of atom types
+        """Update internal atom type lists with entries from an ``.itp`` file."""
+        for atom in itp_atomtypes:
             atom_list = atom.split()
-            if len(atom_list)>2: # prevent empty spaces from breaking the code
+            if len(atom_list) > 2:
                 atom_type = atom_list[0]
             else:
                 continue
@@ -51,6 +53,7 @@ class GMXitp():
         return None
     
     def _make_top(self) -> None:
+        """Write ``topol.top`` including all required ``.itp`` files."""
         content = ["; topol.top\n",
                    "\n",
                    "; Include AMBER\n",
@@ -96,6 +99,7 @@ class GMXitp():
         return None
 
     def _make_complex_itp(self) -> None:
+        """Write ``complex.itp`` containing the unified atom types."""
         content = ["; complex.itp\n",
                    "\n",
                    "[ atomtypes ]\n", 
@@ -111,24 +115,21 @@ class GMXitp():
         return None
 
     def create_topol(self) -> None:
+        """Generate combined topology and truncated ``.itp`` files."""
         PCC_atomtypes, PCC_trunc = self._load_itp(self.PCC_itp_dir)
-        self._update_atomtypes(PCC_atomtypes) # Update the two lists
+        self._update_atomtypes(PCC_atomtypes)
 
         MOL_atomtypes, MOL_trunc = self._load_itp(self.MOL_itp_dir)
-        self._update_atomtypes(MOL_atomtypes) # Update the two lists
+        self._update_atomtypes(MOL_atomtypes)
 
-        # make comlex itp from self.atomtypes_sec
         self._make_complex_itp()
 
-        # write the truncated MOL and PCC itp files
         with open(self.base_dir/"MOL_truncated.itp", 'w') as f:
             f.writelines(MOL_trunc)
-        
+
         with open(self.base_dir/"PCC_truncated.itp", 'w') as f:
             f.writelines(PCC_trunc)
-        
 
-        # make topol.top and include the forcefield.itp, 
         self._make_top()
 
         return None
