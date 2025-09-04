@@ -406,7 +406,7 @@ structure for subsequent free-energy calculations.</p>
 
 
 <h3 id="FECalc.PCCBuilder.PCCBuilder.create" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">create</span><span class="p">()</span></code>
+            <code class="highlight language-python"><span class="n">create</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 </h3>
 
@@ -420,6 +420,41 @@ sequentially calling :meth:<code>_create_pcc</code>, :meth:<code>_get_params</co
 <code>.done</code> file is present.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>check</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>True</code> (default), pause after PCC
+creation and after parameter generation to allow manual
+inspection of the intermediate structures. Rerun the method to
+continue to the next stage. If <code>False</code>, proceed through all
+stages without interruption.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     <p><span class="doc-section-title">Returns:</span></p>
     <table>
       <thead>
@@ -431,7 +466,7 @@ sequentially calling :meth:<code>_create_pcc</code>, :meth:<code>_get_params</co
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="tuple">tuple</span></code>
+                  <code>None</code>
             </td>
             <td>
               <div class="doc-md-description">

@@ -109,6 +109,13 @@
                     <div class="col-md-9" role="main">
 
 <h1 id="modifications">Modifications</h1>
+<p>AmberTools' <code>sqm</code> executable is required for parameter generation and depends on <code>libgfortran5</code>. Install them after setting up the repository:</p>
+<pre><code class="language-bash">conda install -c conda-forge ambertools libgfortran5
+</code></pre>
+<p>PyMOL is required but not installed automatically because no pip wheel is available. Install PyMOL separately from <a href="https://www.pymol.org/">pymol.org</a> or build from the open-source <a href="https://github.com/schrodinger/pymol-open-source">GitHub repository</a>. There's also a conda package package available:</p>
+<pre><code class="language-bash">conda install -c conda-forge pymol-open-source
+</code></pre>
+<p>Ensure the <code>pymol</code> executable is on your <code>PATH</code>.</p>
 <p>The default installation covers the core features of PCC-FECalc. Depending on your workflow, you may wish to install optional extras or adjust configuration files:</p>
 <ul>
 <li><strong>Documentation build</strong>: <code>pip install .[docs]</code> installs <code>mkdocs</code> and related plugins for building the documentation.</li>

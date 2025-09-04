@@ -140,10 +140,21 @@
 <hr />
 <h2 id="usage">🛠 Usage</h2>
 <p>See <code>example/pcc_submit_test.py</code> for a sample calculation setup.</p>
-<p>This framework additionally relies on PyMOL and <code>acpype</code> for PCC mutations and GAFF2 parameter generation. Both are installed automatically as the <code>pymol-open-source</code> and <code>acpype</code> Python packages. Ensure the <code>pymol</code> executable is available on your <code>PATH</code>.</p>
+<p>This framework additionally relies on PyMOL and <code>acpype</code> for PCC mutations and GAFF2 parameter generation. <code>acpype</code> is installed automatically as a Python package. PyMOL is required but not installed automatically because no pip wheel is available. Install PyMOL separately from <a href="https://www.pymol.org/">pymol.org</a> or build from the open-source <a href="https://github.com/schrodinger/pymol-open-source">GitHub repository</a>. There's also a conda package package available:</p>
+<pre><code class="language-bash">conda install -c conda-forge pymol-open-source
+</code></pre>
+<p>Ensure the <code>pymol</code> executable is on your <code>PATH</code>.</p>
+<p>The <code>acpype</code> workflow uses the <code>sqm</code> program from AmberTools, so install AmberTools and <code>libgfortran5</code> after setting up the repository:</p>
+<pre><code class="language-bash">conda install -c conda-forge ambertools libgfortran5
+</code></pre>
 <p>The calculations happen through four steps and each step requires a <code>JSON</code> files with the necessary user parameters:</p>
 <h3 id="step-1-building-the-pcc">Step 1: Building the PCC</h3>
-<p>The settings file for this step is pre-made in <code>FECalc/PCCBuilder_settings.JSON</code> and generally requires no modification.</p>
+<p>The settings file for this step is pre-made in <code>FECalc/PCCBuilder_settings.JSON</code> and generally requires no modification.
+By default, calling <code>PCCBuilder.create</code> will halt after each major stage so you
+can manually inspect the generated PCC structure and the parameters produced by
+<code>acpype</code>. Rerun the method to continue to the next step. If you prefer to run
+the entire preparation in one go, call <code>PCCBuilder.create(check=False)</code> to
+skip these pauses.</p>
 <h3 id="step-2-building-the-target">Step 2: Building the target</h3>
 <p>The settings file for this step should be created by the user. Two example are provided in <code>example/ACT_settings.JSON</code> for acetaminophen and <code>example/FEN_settings.JSON</code> for fentanyl. The mandatory entries are:</p>
 <ul>
@@ -274,5 +285,5 @@
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2025-09-04 01:07:08.267140+00:00
+Build Date UTC : 2025-09-04 19:10:45.587136+00:00
 -->
