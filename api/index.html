@@ -101,15 +101,15 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#api-reference" class="nav-link">API Reference</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#FECalc.PCCBuilder" class="nav-link">PCCBuilder</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.PCCBuilder.PCCBuilder" class="nav-link">PCCBuilder</a>
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#FECalc.TargetMOL" class="nav-link">TargetMOL</a>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.PCCBuilder.PCCBuilder.__init__" class="nav-link">__init__</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.PCCBuilder.PCCBuilder.create" class="nav-link">create</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -117,11 +117,27 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc" class="nav-link">FECalc</a>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.TargetMOL.TargetMOL.__init__" class="nav-link">__init__</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.TargetMOL.TargetMOL.create" class="nav-link">create</a>
               <ul class="nav flex-column">
               </ul>
             </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc.FECalc" class="nav-link">FECalc</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc.FECalc.__init__" class="nav-link">__init__</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc.FECalc.run" class="nav-link">run</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc.FECalc.update_mdp" class="nav-link">update_mdp</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -167,44 +183,12 @@
 <h1 id="api-reference">API Reference</h1>
 
 
-<div class="doc doc-object doc-module">
-
-
-
-<a id="FECalc.PCCBuilder"></a>
-    <div class="doc doc-contents first">
-
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
 <div class="doc doc-object doc-class">
 
 
 
-<h2 id="FECalc.PCCBuilder.PCCBuilder" class="doc doc-heading">
-            <code>PCCBuilder</code>
-
-
-</h2>
-
-
-    <div class="doc doc-contents ">
+<a id="FECalc.PCCBuilder.PCCBuilder"></a>
+    <div class="doc doc-contents first">
 
 
         <p>Build peptide capture constructs (PCCs) composed of D-amino acids.</p>
@@ -236,10 +220,10 @@ structure for subsequent free-energy calculations.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.PCCBuilder.PCCBuilder.__init__" class="doc doc-heading">
+<h2 id="FECalc.PCCBuilder.PCCBuilder.__init__" class="doc doc-heading">
             <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">pcc</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">,</span> <span class="n">settings_json</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">nodes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cores</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -388,10 +372,10 @@ structure for subsequent free-energy calculations.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.PCCBuilder.PCCBuilder.create" class="doc doc-heading">
+<h2 id="FECalc.PCCBuilder.PCCBuilder.create" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">create</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -473,53 +457,12 @@ stages without interruption.</p>
 
 </div>
 
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-module">
-
-
-
-<a id="FECalc.TargetMOL"></a>
-    <div class="doc doc-contents first">
-
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
 <div class="doc doc-object doc-class">
 
 
 
-<h2 id="FECalc.TargetMOL.TargetMOL" class="doc doc-heading">
-            <code>TargetMOL</code>
-
-
-</h2>
-
-
-    <div class="doc doc-contents ">
+<a id="FECalc.TargetMOL.TargetMOL"></a>
+    <div class="doc doc-contents first">
 
 
         <p>Handle preparation of the small-molecule target.</p>
@@ -551,10 +494,10 @@ for complex assembly with a PCC.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.TargetMOL.TargetMOL.__init__" class="doc doc-heading">
+<h2 id="FECalc.TargetMOL.TargetMOL.__init__" class="doc doc-heading">
             <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">settings_json</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">nodes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cores</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -649,10 +592,10 @@ configuration and I/O paths.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.TargetMOL.TargetMOL.create" class="doc doc-heading">
+<h2 id="FECalc.TargetMOL.TargetMOL.create" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">create</span><span class="p">()</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -698,53 +641,12 @@ structure, and exports the relevant files. Each step is skipped if a
 
 </div>
 
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-module">
-
-
-
-<a id="FECalc.FECalc"></a>
-    <div class="doc doc-contents first">
-
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
 <div class="doc doc-object doc-class">
 
 
 
-<h2 id="FECalc.FECalc.FECalc" class="doc doc-heading">
-            <code>FECalc</code>
-
-
-</h2>
-
-
-    <div class="doc doc-contents ">
+<a id="FECalc.FECalc.FECalc"></a>
+    <div class="doc doc-contents first">
 
 
         <p>Compute PCC–target binding free energies via PBMetaD simulations.</p>
@@ -777,10 +679,10 @@ output for free-energy analysis.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.FECalc.FECalc.__init__" class="doc doc-heading">
+<h2 id="FECalc.FECalc.FECalc.__init__" class="doc doc-heading">
             <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">pcc</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">,</span> <span class="n">temp</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">nodes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cores</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -804,7 +706,7 @@ output for free-energy analysis.</p>
                 <code>pcc</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="FECalc.PCCBuilder" href="#FECalc.PCCBuilder">PCCBuilder</a></code>
+                  <code><span title="FECalc.PCCBuilder">PCCBuilder</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -961,10 +863,10 @@ output for free-energy analysis.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.FECalc.FECalc.run" class="doc doc-heading">
+<h2 id="FECalc.FECalc.FECalc.run" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">run</span><span class="p">(</span><span class="n">n_steps</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -1037,10 +939,10 @@ steps.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="FECalc.FECalc.FECalc.update_mdp" class="doc doc-heading">
+<h2 id="FECalc.FECalc.FECalc.update_mdp" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">update_mdp</span><span class="p">(</span><span class="n">mdp_in</span><span class="p">,</span> <span class="n">mdp_out</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-</h3>
+</h2>
 
 
     <div class="doc doc-contents ">
@@ -1146,15 +1048,6 @@ steps.</p>
 
 </div>
 
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
 <div class="doc doc-object doc-module">
 
 
@@ -1227,7 +1120,7 @@ dissociation constant. Internally, the following steps are performed:</p>
                 <code>fecalc</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="FECalc.FECalc" href="#FECalc.FECalc">FECalc</a></code>
+                  <code><span title="FECalc.FECalc">FECalc</span></code>
             </td>
             <td>
               <div class="doc-md-description">
