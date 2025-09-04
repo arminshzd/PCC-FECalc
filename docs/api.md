@@ -1,10 +1,10 @@
 # API Reference
 
-::: FECalc.PCCBuilder
+::: FECalc.PCCBuilder.PCCBuilder
 
-::: FECalc.TargetMOL
+::: FECalc.TargetMOL.TargetMOL
 
-::: FECalc.FECalc
+::: FECalc.FECalc.FECalc
 
 ::: FECalc.postprocess
 
