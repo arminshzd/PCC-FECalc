@@ -178,38 +178,6 @@ class FECalc():
         self.PCC_list_atom = PCC_list_atom
         return None
         
-    def _fix_posre(self) -> None:
-        """Regenerate position restraints with updated atom indices.
-
-        The atom numbering changes after energy minimization of the complex.
-        This function reads the minimized ``em.gro`` file and writes
-        ``posre_MOL.itp`` and ``posre_PCC.itp`` with the correct atom IDs.
-
-        Returns:
-            None
-        """
-        # write posre_MOL.itp
-        cwd = os.getcwd()
-        if Path("./posre_MOL.itp").exists():
-            subprocess.run(f"mv {cwd}/posre_MOL.itp {cwd}/posre_MOL_backup.itp", shell=True)
-        with open("./posre_MOL.itp", 'w') as f:
-            f.write("; posre_MOL.itp\n")
-            f.write("\n")
-            f.write("[ position_restraints ]\n")
-            f.write("; atom  type      fx      fy      fz\n")
-            for i in self.MOL_list:
-                f.write(f"\t{i}\t1\t1000\t1000\t1000\n")
-        # write posre_PCC.itp
-        if Path("./posre_PCC.itp").exists():
-            subprocess.run(f"mv {cwd}/posre_PCC.itp {cwd}/posre_PCC_backup.itp", shell=True)
-        with open("./posre_PCC.itp", 'w') as f:
-            f.write("; posre_PCC.itp\n")
-            f.write("\n")
-            f.write("[ position_restraints ]\n")
-            f.write("; atom  type      fx      fy      fz\n")
-            for i in self.PCC_list:
-                f.write(f"\t{i}\t1\t1000\t1000\t1000\n")
-        return None
     
     def update_mdp(self, mdp_in, mdp_out, n_steps=None):
         """Update MDP files with the target temperature and step count.
@@ -253,7 +221,7 @@ class FECalc():
                 # copy MOL and PCC files into complex directory
                 subprocess.run(["cp", f"{self.target_dir}/MOL.itp", "."], check=True)
                 subprocess.run(["cp", f"{self.target_dir}/MOL.pdb", "."], check=True)
-                subprocess.run(["cp", f"{self.target_dir}/posre_MOL.itp", "."], check=True) # This has incorrect atom numbers
+                subprocess.run(["cp", f"{self.target_dir}/posre_MOL.itp", "."], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/PCC_GMX.itp", "./PCC.itp"], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/posre_PCC.itp", "."], check=True)
                 subprocess.run(
@@ -387,8 +355,6 @@ class FECalc():
         """Solvate and equilibrate the PCC–target complex.
 
         Energy minimization, NVT, and NPT simulations are run sequentially.
-        After minimization, atom indices are updated and position restraint
-        files are regenerated.
 
         Returns:
             None
@@ -413,11 +379,7 @@ class FECalc():
 
         if not self.MOL_list:
             with cd(self.complex_dir/"em"): # cd into complex/em
-                # update atom ids
                 self._get_atom_ids("./em.gro")
-            # regenerate posre files with updated atom ids
-            with cd(self.complex_dir):
-                self._fix_posre()
         ## NVT
         if not self._check_done(self.complex_dir/"nvt"):
             # create complex/nvt dir
