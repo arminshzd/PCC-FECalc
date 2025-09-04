@@ -299,13 +299,20 @@ class PCCBuilder():
         self._set_done(self.PCC_dir / "em")
         return None
 
-    def create(self) -> tuple:
+    def create(self, *, check: bool = True) -> None:
         """Build, parameterize, and minimize a PCC.
 
         This wrapper orchestrates the full PCC preparation workflow by
         sequentially calling :meth:`_create_pcc`, :meth:`_get_params`, and
         :meth:`_minimize_PCC`. Each stage is skipped if a corresponding
         ``.done`` file is present.
+
+        Args:
+            check (bool, optional): If ``True`` (default), pause after PCC
+                creation and after parameter generation to allow manual
+                inspection of the intermediate structures. Rerun the method to
+                continue to the next stage. If ``False``, proceed through all
+                stages without interruption.
 
         Returns:
             None
@@ -316,8 +323,9 @@ class PCCBuilder():
         print(f"{now}: Running pymol: ", end="", flush=True)
         if not self._check_done(self.PCC_dir):
             self._create_pcc()
-            print("Check the initial structure and rerun to continue.")
-            return None
+            if check:
+                print("Check the initial structure and rerun to continue.")
+                return None
         print("\tDone.", flush=True)
         # get params
         now = datetime.now()
@@ -325,6 +333,9 @@ class PCCBuilder():
         print(f"{now}: Getting gaff parameters: ", flush=True)
         if not self._check_done(self.PCC_dir/"PCC.acpype"):
             self._get_params()
+            if check:
+                print("Check the generated structure and rerun to continue.")
+                return None
         print("Done.", flush=True)
         # minimize PCC
         now = datetime.now()
@@ -337,5 +348,5 @@ class PCCBuilder():
         now = now.strftime("%m/%d/%Y, %H:%M:%S")
         print(f"{now}: All steps completed.")
         print("-"*30 + "Finished" + "-"*30)
-        
+
         return None
