@@ -60,7 +60,7 @@ class FECalc():
             now = datetime.now()
             now = now.strftime("%m/%d/%Y, %H:%M:%S")
             print(f"{now}: Base directory does not exist. Creating...")
-            self.base_dir.mkdir()
+            self.base_dir.mkdir(parents=True, exist_ok=True)
 
         self.PCC_dir = self.pcc.PCC_dir # directory to store PCC calculations
 
