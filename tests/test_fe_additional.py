@@ -183,7 +183,6 @@ def test_eq_complex_propagates_missing_em_gro(tmp_path, monkeypatch):
     fe._check_done = lambda stage: False
     fe._set_done = lambda stage: None
     fe.update_mdp = lambda *args, **kwargs: None
-    fe._fix_posre = lambda: None
 
     monkeypatch.setattr(fe_mod, "subprocess", SimpleNamespace(run=_fake_run))
 
