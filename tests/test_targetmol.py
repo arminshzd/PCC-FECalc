@@ -191,10 +191,6 @@ def test_minimize_mol_copies_files_and_runs(tmp_path, monkeypatch):
                 (dst_path / src_path.name).write_text(src_path.read_text())
             else:
                 dst_path.write_text(src_path.read_text())
-        elif isinstance(cmd, str) and cmd.startswith("sed -i"):
-            target = tm.base_dir / "em" / "topol.top"
-            text = target.read_text().replace("PCC", "MOL")
-            target.write_text(text)
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
