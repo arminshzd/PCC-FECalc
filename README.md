@@ -61,6 +61,9 @@ The calculations happen through four steps and each step requires a `JSON` files
 ### Step 1: Building the PCC
 
 The settings file for this step is pre-made in `FECalc/PCCBuilder_settings.JSON` and generally requires no modification.
+``PCCBuilder.create`` stops after building the structure and again after
+parameter generation so that you can inspect the intermediate files. Invoke
+``PCCBuilder.create(check=False)`` to perform all steps without interruption.
 
 ### Step 2: Building the target
 

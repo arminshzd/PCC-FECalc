@@ -30,7 +30,7 @@ postprocess_settings = dict(settings["postprocess_settings"]) if \
     settings.get("postprocess_settings", None) is not None else dict()
 
 PCC = PCCBuilder("RWSHR", PCC_output, PCC_settings, nodes=nodes, cores=cores, threads=threads)
-PCC.create()
+PCC.create(check=False)
 MOL = TargetMOL(MOL_settings, nodes=nodes, cores=cores, threads=threads)
 MOL.create()
 complex_output = Path(settings["complex_output_dir"])/f"{PCC.PCC_code}_{MOL.name}"

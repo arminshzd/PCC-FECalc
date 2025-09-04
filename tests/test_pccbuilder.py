@@ -221,17 +221,52 @@ def test_create_orchestrates_and_skips_done(tmp_path, monkeypatch):
     monkeypatch.setattr(builder, "_get_params", lambda: call_order.append("params"))
     monkeypatch.setattr(builder, "_minimize_PCC", lambda: call_order.append("min"))
 
-    def check(stage):
-        if stage == builder.PCC_dir:
-            return False
-        return True
+    # first call: only creation
+    def check1(stage):
+        return stage != builder.PCC_dir
 
-    monkeypatch.setattr(builder, "_check_done", check)
-
+    monkeypatch.setattr(builder, "_check_done", check1)
     builder.create()
     assert call_order == ["create"]
 
+    # second call: parameters
     call_order.clear()
-    monkeypatch.setattr(builder, "_check_done", lambda stage: True)
+
+    def check2(stage):
+        if stage == builder.PCC_dir:
+            return True
+        return stage != builder.PCC_dir / "PCC.acpype"
+
+    monkeypatch.setattr(builder, "_check_done", check2)
     builder.create()
-    assert call_order == []
+    assert call_order == ["params"]
+
+    # third call: minimization
+    call_order.clear()
+
+    def check3(stage):
+        if stage == builder.PCC_dir:
+            return True
+        if stage == builder.PCC_dir / "PCC.acpype":
+            return True
+        return False
+
+    monkeypatch.setattr(builder, "_check_done", check3)
+    builder.create()
+    assert call_order == ["min"]
+
+
+def test_create_no_check_runs_all(tmp_path, monkeypatch):
+    settings_file = make_settings(tmp_path)
+    base_dir = tmp_path / "calc"
+    builder = PCCBuilder("AA", base_dir, settings_file)
+
+    call_order = []
+
+    monkeypatch.setattr(builder, "_create_pcc", lambda: call_order.append("create"))
+    monkeypatch.setattr(builder, "_get_params", lambda: call_order.append("params"))
+    monkeypatch.setattr(builder, "_minimize_PCC", lambda: call_order.append("min"))
+    monkeypatch.setattr(builder, "_check_done", lambda stage: False)
+
+    builder.create(check=False)
+    assert call_order == ["create", "params", "min"]

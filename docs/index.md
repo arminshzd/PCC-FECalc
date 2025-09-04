@@ -43,6 +43,11 @@ The calculations happen through four steps and each step requires a `JSON` files
 ### Step 1: Building the PCC
 
 The settings file for this step is pre-made in `FECalc/PCCBuilder_settings.JSON` and generally requires no modification.
+By default, calling ``PCCBuilder.create`` will halt after each major stage so you
+can manually inspect the generated PCC structure and the parameters produced by
+``acpype``. Rerun the method to continue to the next step. If you prefer to run
+the entire preparation in one go, call ``PCCBuilder.create(check=False)`` to
+skip these pauses.
 
 ### Step 2: Building the target
 
