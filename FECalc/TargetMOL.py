@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from .utils import cd, _prep_pdb, run_gmx
+from .utils import cd, _prep_pdb, _run_gmx
 
 
 class TargetMOL():
@@ -175,36 +175,36 @@ class TargetMOL():
             np = self.nodes * self.cores * self.threads
 
             # Create box
-            run_gmx([
+            _run_gmx([
                 "gmx", "editconf", "-f", "MOL_GMX.gro", "-o", "MOL_box.gro", "-c", "-d", "1.0", "-bt", "cubic"
             ])
 
             # Solvate
-            run_gmx([
+            _run_gmx([
                 "gmx", "solvate", "-cp", "MOL_box.gro", "-cs", "spc216.gro", "-o", "MOL_sol.gro", "-p", "topol.top"
             ])
 
             # Neutralize if needed and prepare tpr
             if self.charge != 0:
-                run_gmx([
+                _run_gmx([
                     "gmx", "grompp", "-f", "ions.mdp", "-c", "MOL_sol.gro", "-p", "topol.top", "-o", "ions.tpr", "-maxwarn", "2"
                 ])
-                run_gmx([
+                _run_gmx([
                     "gmx", "genion", "-s", "ions.tpr", "-o", "MOL_sol_ions.gro", "-p", "topol.top", "-pname", "NA", "-nname", "CL", "-neutral"
                 ], input="4\n", text=True)
-                run_gmx([
+                _run_gmx([
                     "gmx", "grompp", "-f", "em.mdp", "-c", "MOL_sol_ions.gro", "-p", "topol.top", "-o", "em.tpr"
                 ])
             else:
-                run_gmx([
+                _run_gmx([
                     "gmx", "grompp", "-f", "em.mdp", "-c", "MOL_sol.gro", "-p", "topol.top", "-o", "em.tpr"
                 ])
 
             # Run minimization
-            run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
+            _run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
 
             # Convert minimized structure to PDB
-            run_gmx([
+            _run_gmx([
                 "gmx", "trjconv", "-s", "em.tpr", "-f", "em.gro", "-o", "MOL_em.pdb", "-pbc", "whole", "-conect"
             ], input="2\n", text=True)
         self._set_done(self.base_dir/"em")

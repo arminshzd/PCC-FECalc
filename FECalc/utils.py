@@ -7,7 +7,8 @@ from subprocess import CalledProcessError
 import numpy as np
 
 
-def set_hw_env(
+# Prefix with underscore to mark as private and avoid mkdocs exposure
+def _set_hw_env(
     scheduler: str, nodes: int, cores: int, threads: int
 ) -> tuple[int, int, int]:
     """Resolve hardware settings for various job schedulers.
@@ -280,7 +281,8 @@ class cd:
         os.chdir(self.savedPath)
 
 
-def run_gmx(cmd, **kwargs):
+# Prefix with underscore to mark as private and avoid mkdocs exposure
+def _run_gmx(cmd, **kwargs):
     """Run a ``gmx`` command with improved error reporting.
 
     Parameters
@@ -324,7 +326,8 @@ def run_gmx(cmd, **kwargs):
         raise RuntimeError(msg) from e
 
 
-def extract_timestep(mdp_file: Path) -> str:
+# Prefix with underscore to mark as private and avoid mkdocs exposure
+def _extract_timestep(mdp_file: Path) -> str:
     """Return the ``dt`` value from a GROMACS ``.mdp`` file.
 
     Parameters

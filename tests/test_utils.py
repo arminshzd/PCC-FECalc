@@ -7,7 +7,7 @@ import pytest
 # ensure package root on path for import
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from FECalc.utils import _read_pdb, _write_coords_to_pdb, _prep_pdb, cd, set_hw_env, _place_in_box
+from FECalc.utils import _read_pdb, _write_coords_to_pdb, _prep_pdb, cd, _set_hw_env, _place_in_box
 
 
 def test_set_hw_env_slurm(monkeypatch):
@@ -15,13 +15,13 @@ def test_set_hw_env_slurm(monkeypatch):
     monkeypatch.setenv("SLURM_NTASKS_PER_NODE", "4")
     monkeypatch.setenv("SLURM_CPUS_PER_TASK", "8")
 
-    nodes, cores, threads = set_hw_env("slurm", nodes=1, cores=1, threads=1)
+    nodes, cores, threads = _set_hw_env("slurm", nodes=1, cores=1, threads=1)
 
     assert (nodes, cores, threads) == (2, 4, 8)
 
 
 def test_set_hw_env_local():
-    nodes, cores, threads = set_hw_env("local", nodes=1, cores=2, threads=3)
+    nodes, cores, threads = _set_hw_env("local", nodes=1, cores=2, threads=3)
     assert (nodes, cores, threads) == (1, 2, 3)
 
 
