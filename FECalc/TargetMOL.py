@@ -166,7 +166,10 @@ class TargetMOL():
             subprocess.run(["cp", f"{self.script_dir}/PCC/em/ions.mdp", "."], check=True)
             subprocess.run(["cp", f"{self.script_dir}/PCC/em/em.mdp", "."], check=True)
             # fix topol.top
-            subprocess.run(f"sed -i 's/PCC/MOL/g' topol.top", shell=True)
+            topol_path = Path("topol.top")
+            topol_text = topol_path.read_text()
+            topol_text = topol_text.replace("PCC", "MOL")
+            topol_path.write_text(topol_text)
 
             # Determine total number of threads for mdrun
             np = self.nodes * self.cores * self.threads
