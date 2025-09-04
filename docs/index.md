@@ -24,7 +24,19 @@ The framework is organized into four main submodules that work in serial to perf
 
 See `example/pcc_submit_test.py` for a sample calculation setup.
 
-This framework additionally relies on PyMOL and `acpype` for PCC mutations and GAFF2 parameter generation. Both are installed automatically as the `pymol-open-source` and `acpype` Python packages. Ensure the `pymol` executable is available on your `PATH`.
+This framework additionally relies on PyMOL and `acpype` for PCC mutations and GAFF2 parameter generation. `acpype` is installed automatically as a Python package. PyMOL is required but not installed automatically because no pip wheel is available. Install PyMOL separately from [pymol.org](https://www.pymol.org/) or build from the open-source [GitHub repository](https://github.com/schrodinger/pymol-open-source). There's also a conda package package available:
+
+```bash
+conda install -c conda-forge pymol-open-source
+```
+
+Ensure the `pymol` executable is on your `PATH`.
+
+The `acpype` workflow uses the `sqm` program from AmberTools, so install AmberTools and `libgfortran5` after setting up the repository:
+
+```bash
+conda install -c conda-forge ambertools libgfortran5
+```
 
 The calculations happen through four steps and each step requires a `JSON` files with the necessary user parameters:
 
