@@ -1,4 +1,4 @@
-# Examples
+# Example 1
 
 The `example` directory demonstrates how to run a complete binding free energy calculation with PCC-FECalc.  It contains sample settings files and a submission script:
 
