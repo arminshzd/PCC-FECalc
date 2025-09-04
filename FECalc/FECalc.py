@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .GMXitp.GMXitp import GMXitp
-from .utils import cd, _place_in_box, run_gmx, extract_timestep
+from .utils import cd, _place_in_box, _run_gmx, _extract_timestep
 
 class FECalc():
     """Compute PCC–target binding free energies via PBMetaD simulations.
@@ -179,7 +179,7 @@ class FECalc():
         return None
         
     
-    def update_mdp(self, mdp_in, mdp_out, n_steps=None):
+    def _update_mdp(self, mdp_in, mdp_out, n_steps=None):
         """Update MDP files with the target temperature and step count.
 
         Args:
@@ -259,7 +259,7 @@ class FECalc():
             None
         """
         # Create box
-        run_gmx(
+        _run_gmx(
             [
                 "gmx",
                 "editconf",
@@ -275,7 +275,7 @@ class FECalc():
             ]
         )
         # Solvate
-        run_gmx(
+        _run_gmx(
             [
                 "gmx",
                 "solvate",
@@ -291,7 +291,7 @@ class FECalc():
         )
         # Neutralize and prepare EM input
         if self.PCC_charge != 0:
-            run_gmx(
+            _run_gmx(
                 [
                     "gmx",
                     "grompp",
@@ -307,7 +307,7 @@ class FECalc():
                     "2",
                 ]
             )
-            run_gmx(
+            _run_gmx(
                 [
                     "gmx",
                     "genion",
@@ -329,7 +329,7 @@ class FECalc():
             grompp_input = "complex_sol_ions.gro"
         else:
             grompp_input = "complex_sol.gro"
-        run_gmx(
+        _run_gmx(
             [
                 "gmx",
                 "grompp",
@@ -348,7 +348,7 @@ class FECalc():
         # Determine number of threads
         np = self._compute_np()
         # Run energy minimization
-        run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
+        _run_gmx(["gmx", "mdrun", "-ntomp", str(np), "-deffnm", "em"])
         return None
     
     def _eq_complex(self) -> None:
@@ -398,15 +398,15 @@ class FECalc():
                 else:
                     subprocess.run(["cp", f"{self.script_dir}/complex/nvt/nvt_nions.mdp", "./nvt_temp.mdp"], check=True)
                 # set temperature
-                self.update_mdp("./nvt_temp.mdp", "./nvt.mdp")
+                self._update_mdp("./nvt_temp.mdp", "./nvt.mdp")
                 subprocess.run(f"rm ./nvt_temp.mdp", shell=True)
                 # run NVT step previously handled by sub_mdrun_complex_nvt.sh
                 np = self._compute_np()
                 # assume required modules and GROMACS environment are preconfigured
-                run_gmx(
+                _run_gmx(
                     "gmx grompp -f nvt.mdp -c ../em/em.gro -r ../em/em.gro -p topol.top -o nvt.tpr"
                 )
-                run_gmx(
+                _run_gmx(
                     f"gmx mdrun -ntomp {np} -deffnm nvt"
                 )
             self._set_done(self.complex_dir/'nvt')
@@ -428,11 +428,11 @@ class FECalc():
                 else:
                     subprocess.run(["cp", f"{self.script_dir}/complex/npt/npt_nions.mdp", "./npt_temp.mdp"], check=True)
                 # set temperature
-                self.update_mdp("./npt_temp.mdp", "./npt.mdp")
+                self._update_mdp("./npt_temp.mdp", "./npt.mdp")
                 subprocess.run(f"rm ./npt_temp.mdp", shell=True)
                 # run gromacs npt directly
                 np = self._compute_np()
-                run_gmx([
+                _run_gmx([
                     "gmx",
                     "grompp",
                     "-f",
@@ -448,7 +448,7 @@ class FECalc():
                     "-o",
                     "npt.tpr",
                 ])
-                run_gmx([
+                _run_gmx([
                     "gmx",
                     "mdrun",
                     "-ntomp",
@@ -603,10 +603,10 @@ class FECalc():
                 else:
                     subprocess.run(["cp", f"{self.script_dir}/complex/md/md_nions.mdp", "./md_temp.mdp"], check=True)
                 # set temperature and, if requested, the number of steps
-                self.update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
+                self._update_mdp("./md_temp.mdp", "./md.mdp", n_steps=self.n_steps)
                 subprocess.run(f"rm ./md_temp.mdp", shell=True)
                 # generate the binary input for the run
-                run_gmx(
+                _run_gmx(
                     [
                         "gmx",
                         "grompp",
@@ -667,7 +667,7 @@ class FECalc():
                             "-plumed",
                             "plumed.dat",
                         ]
-                    run_gmx(cmd)
+                    _run_gmx(cmd)
                     if attempt > 0:
                         print()
                     break
@@ -712,7 +712,7 @@ class FECalc():
             # remove temp plumed file
             subprocess.run(f"rm ./reweight_temp.dat", shell=True)
             mdp_path = Path("../md/md.mdp")
-            timestep = extract_timestep(mdp_path)
+            timestep = _extract_timestep(mdp_path)
             kt = self.T * 8.314 / 1000
             # run reweight job using plumed driver
             cmd = [
@@ -723,7 +723,7 @@ class FECalc():
                 "--kt", f"{kt}",
                 "--mc", "../md/md.mcfile",
             ]
-            run_gmx(cmd)
+            _run_gmx(cmd)
         self._set_done(self.complex_dir/'reweight')
         return None
 

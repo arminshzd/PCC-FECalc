@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import FECalc.FECalc as fe_mod
 
 from FECalc.FECalc import FECalc
-from FECalc.utils import extract_timestep
+from FECalc.utils import _extract_timestep
 
 
 def test_update_mdp_sets_temperature_and_steps(tmp_path):
@@ -20,7 +20,7 @@ def test_update_mdp_sets_temperature_and_steps(tmp_path):
     fe = FECalc.__new__(FECalc)
     fe.T = 310
 
-    fe.update_mdp(template, out, n_steps=1000)
+    fe._update_mdp(template, out, n_steps=1000)
     lines = out.read_text().splitlines()
 
     assert any("ref_t" in line and str(fe.T) in line for line in lines)
@@ -36,14 +36,14 @@ def test_update_mdp_retains_steps_when_not_provided(tmp_path):
     fe = FECalc.__new__(FECalc)
     fe.T = 300
 
-    fe.update_mdp(template, out)
+    fe._update_mdp(template, out)
     assert "nsteps = 500" in out.read_text()
 
 
 def test_extract_timestep_reads_dt(tmp_path):
     mdp = tmp_path / "md.mdp"
     mdp.write_text("dt = 0.002\n")
-    assert extract_timestep(mdp) == "0.002"
+    assert _extract_timestep(mdp) == "0.002"
 
 
 def test_is_continuous_identifies_gaps():
@@ -189,7 +189,7 @@ def test_eq_complex_propagates_missing_em_gro(tmp_path, monkeypatch):
     fe.box_size = 1
     fe._check_done = lambda stage: False
     fe._set_done = lambda stage: None
-    fe.update_mdp = lambda *args, **kwargs: None
+    fe._update_mdp = lambda *args, **kwargs: None
 
     monkeypatch.setattr(fe_mod, "subprocess", SimpleNamespace(run=_fake_run))
 
@@ -211,7 +211,7 @@ def test_pbmetad_raises_when_md_gro_missing(tmp_path, monkeypatch):
     fe.T = 300
     fe.metad_height = 1
     fe._create_plumed = lambda *args, **kwargs: None
-    fe.update_mdp = lambda *args, **kwargs: None
+    fe._update_mdp = lambda *args, **kwargs: None
     fe._set_done = lambda stage: None
 
     monkeypatch.setattr(fe_mod, "subprocess", SimpleNamespace(run=_fake_run))

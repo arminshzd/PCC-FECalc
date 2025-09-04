@@ -6,7 +6,7 @@ from FECalc.TargetMOL import TargetMOL
 from FECalc.PCCBuilder import PCCBuilder
 from FECalc.FECalc import FECalc
 from FECalc.postprocess import postprocess
-from FECalc.utils import set_hw_env
+from FECalc.utils import _set_hw_env
 
 
 with open("system_settings.JSON") as f:
@@ -17,7 +17,7 @@ scheduler = settings.get("scheduler", "local")
 nodes = int(settings.get("nodes", 1))
 cores = int(settings.get("cores", 1))
 threads = int(settings.get("threads", 1))
-nodes, cores, threads = set_hw_env(scheduler, nodes, cores, threads)
+nodes, cores, threads = _set_hw_env(scheduler, nodes, cores, threads)
 
 PCC_output = Path(settings["PCC_output_dir"])
 PCC_settings = Path(settings["PCC_settings_json"])

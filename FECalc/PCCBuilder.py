@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb, run_gmx
+from .utils import cd, _read_pdb, _write_coords_to_pdb, _prep_pdb, _run_gmx
 
 
 class PCCBuilder():
@@ -247,18 +247,18 @@ class PCCBuilder():
             subprocess.run(["cp", f"{self.script_dir}/PCC/em/em.mdp", "."], check=True)
 
             # construct simulation box and solvate
-            run_gmx(
+            _run_gmx(
                 f"gmx editconf -f PCC_GMX.gro -o {self.PCC_code}_box.gro -c -d 1.0 -bt cubic"
             )
-            run_gmx(
+            _run_gmx(
                 f"gmx solvate -cp {self.PCC_code}_box.gro -cs spc216.gro -o {self.PCC_code}_sol.gro -p topol.top"
             )
 
             if self.charge != 0:
-                run_gmx(
+                _run_gmx(
                     f"gmx grompp -f ions.mdp -c {self.PCC_code}_sol.gro -p topol.top -o ions.tpr -maxwarn 2"
                 )
-                run_gmx(
+                _run_gmx(
                     f"gmx genion -s ions.tpr -o {self.PCC_code}_sol_ions.gro -p topol.top -pname NA -nname CL -neutral",
                     input="4\n",
                     text=True,
@@ -267,18 +267,18 @@ class PCCBuilder():
             else:
                 start_conf = f"{self.PCC_code}_sol.gro"
 
-            run_gmx(
+            _run_gmx(
                 f"gmx grompp -f em.mdp -c {start_conf} -p topol.top -o em.tpr"
             )
 
             np_total = self.nodes * self.cores * self.threads
-            run_gmx(
+            _run_gmx(
                 f"gmx mdrun -ntomp {np_total} -deffnm em"
             )
 
             # convert the resulting em.gro to the final minimized PDB while
             # removing all solvent molecules
-            run_gmx(
+            _run_gmx(
                 [
                     "gmx",
                     "trjconv",
