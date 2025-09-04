@@ -101,19 +101,11 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#api-reference" class="nav-link">API Reference</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#pccbuilder" class="nav-link">PCCBuilder</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.PCCBuilder" class="nav-link">PCCBuilder</a>
               <ul class="nav flex-column">
               </ul>
             </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.PCCBuilder.PCCBuilder" class="nav-link">PCCBuilder</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#targetmol" class="nav-link">TargetMOL</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -125,19 +117,11 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#fecalc" class="nav-link">FECalc</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc" class="nav-link">FECalc</a>
               <ul class="nav flex-column">
               </ul>
             </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.FECalc.FECalc" class="nav-link">FECalc</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
-            <li class="nav-item" data-bs-level="2"><a href="#postprocess" class="nav-link">postprocess</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -153,15 +137,15 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#utils" class="nav-link">utils</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.utils" class="nav-link">utils</a>
               <ul class="nav flex-column">
               </ul>
             </li>
             <li class="nav-item" data-bs-level="2"><a href="#FECalc.utils.cd" class="nav-link">cd</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#FECalc.utils.extract_timestep" class="nav-link">extract_timestep</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -181,7 +165,6 @@
                     <div class="col-md-9" role="main">
 
 <h1 id="api-reference">API Reference</h1>
-<h2 id="pccbuilder">PCCBuilder</h2>
 
 
 <div class="doc doc-object doc-module">
@@ -497,8 +480,7 @@ stages without interruption.</p>
 
     </div>
 
-</div><h2 id="targetmol">TargetMOL</h2>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -723,8 +705,7 @@ structure, and exports the relevant files. Each step is skipped if a
 
     </div>
 
-</div><h2 id="fecalc">FECalc</h2>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -1172,8 +1153,7 @@ steps.</p>
 
     </div>
 
-</div><h2 id="postprocess">postprocess</h2>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -1481,8 +1461,7 @@ n_folds (int): Number of blocks for block analysis. Defaults to 5.</p>
 
     </div>
 
-</div><h2 id="utils">utils</h2>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -1609,6 +1588,33 @@ n_folds (int): Number of blocks for block analysis. Defaults to 5.</p>
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="FECalc.utils.extract_timestep" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">extract_timestep</span><span class="p">(</span><span class="n">mdp_file</span><span class="p">)</span></code>
+
+</h2>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the <code>dt</code> value from a GROMACS <code>.mdp</code> file.</p>
+<h4 id="FECalc.utils.extract_timestep--parameters">Parameters</h4>
+<p>mdp_file : Path
+    Path to the <code>.mdp</code> file to parse.</p>
+<h4 id="FECalc.utils.extract_timestep--returns">Returns</h4>
+<p>str
+    The timestep specified by the <code>dt</code> field.</p>
+<h4 id="FECalc.utils.extract_timestep--raises">Raises</h4>
+<p>ValueError
+    If the <code>dt</code> field is not present in the file.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
