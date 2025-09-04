@@ -191,6 +191,13 @@ def test_minimize_pcc_runs_and_marks_done(tmp_path, monkeypatch):
 
     builder._minimize_PCC()
 
+    assert any(
+        isinstance(c, str)
+        and "gmx editconf" in c
+        and "PCC_GMX.gro" in c
+        and f"{builder.PCC_code}_box.gro" in c
+        for c in calls
+    )
     assert any("gmx mdrun" in str(c) for c in calls)
     assert any(
         isinstance(c, str)

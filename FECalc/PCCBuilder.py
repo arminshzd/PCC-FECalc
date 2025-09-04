@@ -248,7 +248,7 @@ class PCCBuilder():
 
             # construct simulation box and solvate
             run_gmx(
-                f"gmx editconf -f {self.PCC_code}_GMX.gro -o {self.PCC_code}_box.gro -c -d 1.0 -bt cubic"
+                f"gmx editconf -f PCC_GMX.gro -o {self.PCC_code}_box.gro -c -d 1.0 -bt cubic"
             )
             run_gmx(
                 f"gmx solvate -cp {self.PCC_code}_box.gro -cs spc216.gro -o {self.PCC_code}_sol.gro -p topol.top"
