@@ -276,9 +276,24 @@ class PCCBuilder():
                 f"gmx mdrun -ntomp {np_total} -deffnm em"
             )
 
-            # convert the resulting em.gro to the final minimized PDB
+            # convert the resulting em.gro to the final minimized PDB while
+            # removing all solvent molecules
             run_gmx(
-                f"gmx editconf -f em.gro -o {self.PCC_code}_em.pdb"
+                [
+                    "gmx",
+                    "trjconv",
+                    "-s",
+                    "em.tpr",
+                    "-f",
+                    "em.gro",
+                    "-o",
+                    f"{self.PCC_code}_em.pdb",
+                    "-pbc",
+                    "whole",
+                    "-conect",
+                ],
+                input="1\n",
+                text=True,
             )
 
         self._set_done(self.PCC_dir / "em")
