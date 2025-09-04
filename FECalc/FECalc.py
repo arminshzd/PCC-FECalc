@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .GMXitp.GMXitp import GMXitp
-from .utils import cd, _place_in_box, run_gmx
+from .utils import cd, _place_in_box, run_gmx, extract_timestep
 
 class FECalc():
     """Compute PCC–target binding free energies via PBMetaD simulations.
@@ -711,13 +711,17 @@ class FECalc():
             self._create_plumed("./reweight_temp.dat", "./reweight.dat")
             # remove temp plumed file
             subprocess.run(f"rm ./reweight_temp.dat", shell=True)
-            # determine number of threads
-            np = self._compute_np()
-            # run reweight job directly using gmx
+            mdp_path = Path("../md/md.mdp")
+            timestep = extract_timestep(mdp_path)
+            kt = self.T * 8.314 / 1000
+            # run reweight job using plumed driver
             cmd = [
-                "gmx", "mdrun", "-ntomp", str(np),
-                "-plumed", "reweight.dat", "-s", "../md/md.tpr",
-                "-rerun", "../md/md.xtc",
+                "plumed", "driver",
+                "--mf_xtc", "../md/md.xtc",
+                "--plumed", "reweight.dat",
+                "--timestep", str(timestep),
+                "--kt", f"{kt}",
+                "--mc", "../md/md.mcfile",
             ]
             run_gmx(cmd)
         self._set_done(self.complex_dir/'reweight')

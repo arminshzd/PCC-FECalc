@@ -324,3 +324,31 @@ def run_gmx(cmd, **kwargs):
         raise RuntimeError(msg) from e
 
 
+def extract_timestep(mdp_file: Path) -> str:
+    """Return the ``dt`` value from a GROMACS ``.mdp`` file.
+
+    Parameters
+    ----------
+    mdp_file : Path
+        Path to the ``.mdp`` file to parse.
+
+    Returns
+    -------
+    str
+        The timestep specified by the ``dt`` field.
+
+    Raises
+    ------
+    ValueError
+        If the ``dt`` field is not present in the file.
+    """
+
+    mdp_file = Path(mdp_file)
+    with open(mdp_file) as f:
+        for line in f:
+            line = line.split(";")[0].strip()
+            if line.startswith("dt"):
+                return line.split("=", 1)[1].strip()
+    raise ValueError("timestep (dt) not found in mdp file")
+
+
