@@ -256,7 +256,14 @@ class FECalc():
                 subprocess.run(["cp", f"{self.target_dir}/posre_MOL.itp", "."], check=True) # This has incorrect atom numbers
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/PCC_GMX.itp", "./PCC.itp"], check=True)
                 subprocess.run(["cp", f"{self.PCC_dir}/PCC.acpype/posre_PCC.itp", "."], check=True)
-                subprocess.run(["cp", f"{self.PCC_dir}/em/PCC_em.pdb", "./PCC.pdb"], check=True)
+                subprocess.run(
+                    [
+                        "cp",
+                        f"{self.PCC_dir}/em/{self.pcc.PCC_code}_em.pdb",
+                        "./PCC.pdb",
+                    ],
+                    check=True,
+                )
                 # create complex.pdb by placing molecules in the box
                 box = getattr(self, "box_size", 30.0)
                 try:

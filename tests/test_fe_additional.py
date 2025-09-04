@@ -122,6 +122,54 @@ def test_mix_raises_when_complex_pdb_missing(tmp_path, monkeypatch):
         fe._mix()
 
 
+def test_mix_uses_pcc_trjconv_output(tmp_path, monkeypatch):
+    fe = FECalc.__new__(FECalc)
+    fe.complex_dir = tmp_path / "complex"
+    fe.complex_dir.mkdir()
+    fe.target_dir = tmp_path / "target"
+    fe.target_dir.mkdir()
+    fe.PCC_dir = tmp_path / "pcc"
+    (fe.PCC_dir / "em").mkdir(parents=True)
+    (fe.PCC_dir / "PCC.acpype").mkdir(parents=True)
+    fe.script_dir = tmp_path / "scripts"
+    fe.script_dir.mkdir()
+    fe._check_done = lambda stage: False
+    fe._set_done = lambda stage: None
+    fe.pcc = SimpleNamespace(PCC_code="CODE")
+    fe.target = SimpleNamespace()
+
+    # create dummy input files
+    for fname in ["MOL.itp", "MOL.pdb", "posre_MOL.itp"]:
+        (fe.target_dir / fname).write_text("")
+    for fname in ["PCC_GMX.itp", "posre_PCC.itp"]:
+        (fe.PCC_dir / "PCC.acpype" / fname).write_text("")
+    (fe.PCC_dir / "em" / "CODE_em.pdb").write_text("")
+
+    class DummyGMX:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def create_topol(self):
+            pass
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    def fake_place(*args, **kwargs):
+        Path(args[2]).touch()
+
+    monkeypatch.setattr(fe_mod, "GMXitp", DummyGMX)
+    monkeypatch.setattr(fe_mod, "subprocess", SimpleNamespace(run=fake_run))
+    monkeypatch.setattr(fe_mod, "_place_in_box", fake_place)
+
+    fe._mix()
+
+    assert ["cp", f"{fe.PCC_dir}/em/CODE_em.pdb", "./PCC.pdb"] in calls
+
+
 def test_eq_complex_propagates_missing_em_gro(tmp_path, monkeypatch):
     fe = FECalc.__new__(FECalc)
     fe.complex_dir = tmp_path / "complex"
