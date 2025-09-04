@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import FECalc.FECalc as fe_mod
 
 from FECalc.FECalc import FECalc
+from FECalc.utils import extract_timestep
 
 
 def test_update_mdp_sets_temperature_and_steps(tmp_path):
@@ -37,6 +38,12 @@ def test_update_mdp_retains_steps_when_not_provided(tmp_path):
 
     fe.update_mdp(template, out)
     assert "nsteps = 500" in out.read_text()
+
+
+def test_extract_timestep_reads_dt(tmp_path):
+    mdp = tmp_path / "md.mdp"
+    mdp.write_text("dt = 0.002\n")
+    assert extract_timestep(mdp) == "0.002"
 
 
 def test_is_continuous_identifies_gaps():
@@ -223,6 +230,7 @@ def test_reweight_propagates_subprocess_error(tmp_path, monkeypatch):
     fe._create_plumed = lambda *args, **kwargs: None
     fe._set_done = lambda stage: None
     fe.pcc = SimpleNamespace(PCC_code="CODE")
+    fe.T = 300
 
     def fail_run(*args, **kwargs):
         raise subprocess.CalledProcessError(1, args[0])
