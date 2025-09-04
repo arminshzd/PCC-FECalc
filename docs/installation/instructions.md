@@ -8,4 +8,16 @@ cd PCC-FECalc
 pip install -e .
 ```
 
-> **Note:** PyMOL is required but not installed automatically because no pip wheel is available. Install PyMOL separately from [pymol.org](https://www.pymol.org/) or the open-source repository at [github.com/schrodinger/pymol-open-source](https://github.com/schrodinger/pymol-open-source), and ensure the `pymol` executable is on your `PATH`.
+After installing the repository, add AmberTools and `libgfortran5` to enable the `sqm` program:
+
+```bash
+conda install -c conda-forge ambertools libgfortran5
+```
+
+> **Note:** PyMOL is required but not installed automatically because no pip wheel is available. Install PyMOL separately from [pymol.org](https://www.pymol.org/) or build from the open-source [GitHub repository](https://github.com/schrodinger/pymol-open-source). There's also a conda package package available:
+>
+> ```bash
+> conda install -c conda-forge pymol-open-source
+> ```
+>
+> Ensure the `pymol` executable is on your `PATH`.
